@@ -532,7 +532,7 @@ window.__ModuleLoader__.load({
         // A completed node beyond the current fill belongs to an earlier, higher
         // estimate; showing it there would label a future task as already done.
         const currentPercent = known ? Math.max(0, Math.min(100, progress.percent)) : 100
-        const closed = done
+        const visibleSteps = done
           ? allClosed
           : known
             ? allClosed.filter(step => {
@@ -540,12 +540,32 @@ window.__ModuleLoader__.load({
               return !Number.isFinite(value) || value <= currentPercent + 0.5
             })
             : []
+        // Number the nodes left to right, and nudge coincident nodes apart so
+        // each one stays hoverable (including the one under the current node).
+        const closed = [...visibleSteps].sort((left, right) => Number(left.percent) - Number(right.percent))
         const open = steps.length > 0 ? steps[steps.length - 1] : undefined
         const currentLabel = progress.milestone || ''
         const currentSince = open !== undefined && open.endedAt === 0 && open.label === currentLabel
           ? open.at
           : (progress.updatedAt > 0 ? progress.updatedAt : progress.startedAt)
         const showCurrent = !done && !evaluating && known && currentLabel !== ''
+        const bucketKey = value => Math.round(Number(value || 0) * 2) / 2
+        const buckets = new Map()
+        for (const item of closed) {
+          const key = bucketKey(item.percent)
+          const bucket = buckets.get(key)
+          if (bucket === undefined) buckets.set(key, [item])
+          else bucket.push(item)
+        }
+        const currentKey = bucketKey(currentPercent)
+        const nodeOffset = step => {
+          const key = bucketKey(step.percent)
+          const bucket = buckets.get(key) ?? []
+          const rank = bucket.indexOf(step)
+          let offset = (rank - (bucket.length - 1) / 2) * 16
+          if (showCurrent && key === currentKey) offset -= 16
+          return offset
+        }
         const nodes = []
         const edge = position => (position < 16 ? 'start' : position > 84 ? 'end' : undefined)
         for (let index = 0; index < closed.length; index += 1) {
@@ -565,7 +585,10 @@ window.__ModuleLoader__.load({
               key,
               type: 'button',
               className: 'dtp-node',
-              style: { left: `${position}%` },
+              style: {
+                left: `${position}%`,
+                transform: nodeOffset(step) === 0 ? undefined : `translateX(${nodeOffset(step)}px)`,
+              },
               'data-edge': edge(position),
               'aria-label': tt(t, 'step.node', { n: index, x: label, t: took }),
               onMouseEnter: () => setHovered(key),

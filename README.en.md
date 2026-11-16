@@ -25,6 +25,7 @@ Nodes belong to the current turn only and do not record earlier turns:
 - Nodes are Tab-focusable and show the same detail on focus.
 - At most **10** nodes are kept per turn; older ones fade off the rail.
 - Nodes are numbered from **0**: the first finished node is "Node 0", with the current node next.
+- Coincident nodes are nudged apart so every one stays hoverable.
 - A completed node is shown only inside the current fill: if a later estimate lowers the percentage, nodes beyond the fill are hidden until progress catches up.
 
 The rail is maintained in the host's evaluator memory (it observes the effective node every 15 seconds), so nodes survive a page reload and reset on the next turn. When a turn ends, the last node is closed at `turn/end` and stays visible briefly.
