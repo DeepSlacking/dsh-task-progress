@@ -51,8 +51,8 @@ window.__ModuleLoader__.load({
         'progress.evaluating': '评估中',
         'progress.elapsed': '已进行 {t}',
         'progress.analyzing': '正在分析本轮进展',
-        'step.index': '里程碑 {n}',
-        'step.node': '里程碑 {n}：{x}，耗时 {t}',
+        'step.index': '节点 {n}',
+        'step.node': '节点 {n}：{x}，耗时 {t}',
         'step.duration': '耗时 {t}',
         'step.finished': '{t} 完成',
         'step.running': '进行中',
@@ -89,8 +89,8 @@ window.__ModuleLoader__.load({
         'progress.evaluating': 'Evaluating',
         'progress.elapsed': '{t} elapsed',
         'progress.analyzing': 'Reviewing this turn',
-        'step.index': 'Milestone {n}',
-        'step.node': 'Milestone {n}: {x}, took {t}',
+        'step.index': 'Node {n}',
+        'step.node': 'Node {n}: {x}, took {t}',
         'step.duration': 'took {t}',
         'step.finished': 'finished {t}',
         'step.running': 'In progress',
@@ -528,7 +528,18 @@ window.__ModuleLoader__.load({
         // The rail is per turn: a milestone the evaluator superseded is a
         // completed node; the milestone on screen now is the outlined head.
         const steps = sessionId !== undefined ? railStepsOf(store, sessionId, progress.turn) : []
-        const closed = steps.filter(step => step !== null && typeof step === 'object' && step.endedAt > 0)
+        const allClosed = steps.filter(step => step !== null && typeof step === 'object' && step.endedAt > 0)
+        // A completed node beyond the current fill belongs to an earlier, higher
+        // estimate; showing it there would label a future task as already done.
+        const currentPercent = known ? Math.max(0, Math.min(100, progress.percent)) : 100
+        const closed = done
+          ? allClosed
+          : known
+            ? allClosed.filter(step => {
+              const value = Number(step.percent)
+              return !Number.isFinite(value) || value <= currentPercent + 0.5
+            })
+            : []
         const open = steps.length > 0 ? steps[steps.length - 1] : undefined
         const currentLabel = progress.milestone || ''
         const currentSince = open !== undefined && open.endedAt === 0 && open.label === currentLabel
@@ -556,7 +567,7 @@ window.__ModuleLoader__.load({
               className: 'dtp-node',
               style: { left: `${position}%` },
               'data-edge': edge(position),
-              'aria-label': tt(t, 'step.node', { n: index + 1, x: label, t: took }),
+              'aria-label': tt(t, 'step.node', { n: index, x: label, t: took }),
               onMouseEnter: () => setHovered(key),
               onMouseLeave: () => setHovered(value => (value === key ? null : value)),
               onFocus: () => setHovered(key),
@@ -570,7 +581,7 @@ window.__ModuleLoader__.load({
                 h(
                   'span',
                   { className: 'dtp-tip-head' },
-                  h('span', null, tt(t, 'step.index', { n: index + 1 })),
+                  h('span', null, tt(t, 'step.index', { n: index })),
                   h('span', { className: 'dtp-tip-badge' }, tt(t, 'done')),
                 ),
                 h('span', { className: 'dtp-tip-main' }, label),
@@ -580,7 +591,7 @@ window.__ModuleLoader__.load({
           ))
         }
         if (showCurrent) {
-          const index = closed.length + 1
+          const index = closed.length
           const position = railPosition(progress.percent)
           const took = durationText(t, Math.max(0, now - currentSince))
           const key = 'current'

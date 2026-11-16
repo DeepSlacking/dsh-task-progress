@@ -210,12 +210,34 @@ test('hovering a closed milestone shows its label, duration, and finish time', a
   const tips = byClass(tree, 'dtp-tip')
   assert.equal(tips.length, 1)
   const text = textOf(tips[0])
-  assert.match(text, /里程碑 1/)
+  assert.match(text, /节点 0/)
   assert.match(text, /定位问题/)
   assert.match(text, /耗时 5 分钟/)
   assert.match(text, /已完成/)
   byClass(tree, 'dtp-node')[0].props.onMouseLeave()
   assert.equal(byClass(render(), 'dtp-tip').length, 0)
+})
+
+test('a completed node beyond the current fill is hidden, not marked done', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  store.rails['session-1'].steps = [
+    {
+      label: '已完成的前一步', percent: 15, phase: 'plan',
+      at: now - 600_000, endedAt: now - 400_000, durationMs: 200_000,
+    },
+    {
+      label: '未来的一步', percent: 90, phase: 'execute',
+      at: now - 400_000, endedAt: now - 300_000, durationMs: 100_000,
+    },
+    {
+      label: '改客户端样式', percent: 40, phase: 'execute',
+      at: now - 300_000, endedAt: 0, durationMs: 0,
+    },
+  ]
+  const { render } = await loadDock(store)
+  const nodes = byClass(render(), 'dtp-node')
+  assert.deepEqual(nodes.map(node => node.props.style.left), ['15%', '40%'])
 })
 
 test('the current milestone is an outlined node with its elapsed time and next step', async () => {
@@ -225,7 +247,7 @@ test('the current milestone is an outlined node with its elapsed time and next s
   byClass(tree, 'dtp-node')[1].props.onMouseEnter()
   tree = render()
   const text = textOf(byClass(tree, 'dtp-tip')[0])
-  assert.match(text, /里程碑 2/)
+  assert.match(text, /节点 1/)
   assert.match(text, /进行中/)
   assert.match(text, /改客户端样式/)
   assert.match(text, /下一步：验证悬停与节点/)

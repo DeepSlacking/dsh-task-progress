@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Task progress",
-    "description": "Shows the running task's progress bar, phase, and next node, and marks every milestone the evaluator supersedes as a node with hover details and the time that milestone took. The session's sidebar row also carries a progress ring. The session's own model records checkpoints at milestones (report_progress); a side-channel evaluator fills in when it does not. Nothing is shown once the task ends or the session is idle.",
+    "description": "Shows the running task's progress bar, phase, and next node, and marks every node the evaluator supersedes as a node with hover details and the time that node took. The session's sidebar row also carries a progress ring. The session's own model records checkpoints at nodes (report_progress); a side-channel evaluator fills in when it does not. Nothing is shown once the task ends or the session is idle.",
     "detail": "docs/DETAIL.md"
   }
 }

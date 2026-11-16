@@ -2,7 +2,7 @@
 
 [中文](README.md) · English
 
-A DeepSeek Harness (DSH) plugin that shows how far the current task has got, both in the session and on the sidebar row. Each time the model moves to a new milestone within the current turn, the previous milestone leaves a node on the progress bar.
+A DeepSeek Harness (DSH) plugin that shows how far the current task has got, both in the session and on the sidebar row. Each time the model moves to a new node within the current turn, the previous node leaves a node on the progress bar.
 
 ![dsh-task-progress](https://img.shields.io/badge/DSH-0.2.2--rc.1-4176e6) ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -10,22 +10,24 @@ A DeepSeek Harness (DSH) plugin that shows how far the current task has got, bot
 
 | Where | What it shows |
 | --- | --- |
-| Above the composer (`conversation.input.dock`) | Two rows: the first has the bar, the percentage and this turn's milestone nodes; the second has the phase, current milestone, next step and estimated time left. Width follows the chat content area (the host's `--dsh-chat-content-width`) and tracks resizing |
+| Above the composer (`conversation.input.dock`) | Two rows: the first has the bar, the percentage and this turn's nodes; the second has the phase, current node, next step and estimated time left. Width follows the chat content area (the host's `--dsh-chat-content-width`) and tracks resizing |
 | On the session row (`sidebar.session.row.trailing`) | A small ring and percentage next to the timestamp, colored like the bar; shown only for a running, non-empty, non-subagent session that has an estimate |
 
 It appears only while a session runs and lingers briefly after it ends; history and idle sessions show nothing. The large percentage is always **this turn's** 0–100% and never accumulates across turns.
 
-### Milestone nodes for the current turn
+### Nodes for the current turn
 
 Nodes belong to the current turn only and do not record earlier turns:
 
-- Whenever model self-report or the side-channel evaluator names a new "current milestone", the previous milestone counts as finished and leaves a **filled node** at the percentage where it was last seen.
-- The current milestone is an **outlined node** at the bar's current percentage.
-- Hovering any node opens a detail card: which milestone, finished / in progress, its label and phase; finished nodes show the completion time and how long that segment took (from appearing to being replaced), the current node shows elapsed time and the *next step*.
+- Whenever model self-report or the side-channel evaluator names a new "current node", the previous node counts as finished and leaves a **filled node** at the percentage where it was last seen.
+- The current node is an **outlined node** at the bar's current percentage.
+- Hovering any node opens a detail card: which node, finished / in progress, its label and phase; finished nodes show the completion time and how long that segment took (from appearing to being replaced), the current node shows elapsed time and the *next step*.
 - Nodes are Tab-focusable and show the same detail on focus.
-- At most **10** milestone nodes are kept per turn; older ones fade off the rail.
+- At most **10** nodes are kept per turn; older ones fade off the rail.
+- Nodes are numbered from **0**: the first finished node is "Node 0", with the current node next.
+- A completed node is shown only inside the current fill: if a later estimate lowers the percentage, nodes beyond the fill are hidden until progress catches up.
 
-The rail is maintained in the host's evaluator memory (it observes the effective milestone every 15 seconds), so nodes survive a page reload and reset on the next turn. When a turn ends, the last milestone is closed at `turn/end` and stays visible briefly.
+The rail is maintained in the host's evaluator memory (it observes the effective node every 15 seconds), so nodes survive a page reload and reset on the next turn. When a turn ends, the last node is closed at `turn/end` and stays visible briefly.
 
 ## Where the number comes from
 
@@ -34,7 +36,7 @@ The evaluator is always **the session's own model**, through two channels:
 1. **In-session tool `report_progress`** (preferred): `percent`, `phase` (plan / execute / verify / deliver), `milestone`, optional `next`, `eta_min`, `revised`. The tool description pins a scale: 0 not started, 25 plan settled, 50 half the work done, 75 verifying, 100 delivered and verified.
 2. **Side-channel evaluator** (fallback): models often ignore such "telemetry" tools, so while a turn is open and the last self-report is stale, the host sends one short request on the session's current model route. The input is a compressed digest of **this turn only** (user request, todos, last 8 tool calls, last assistant output, minutes elapsed), capped at ~900 tokens; the output is forced to a single JSON line. Results live in memory and the page reads them every 2 seconds from a read-only route.
 
-Merge priority: **fresh model self-report (within 3 minutes) > side-channel evaluation > todo ratio > nothing**. When none exists the bar shows "evaluating" and elapsed time instead of inventing a number. The milestone rail uses the same priority to pick the milestone on display.
+Merge priority: **fresh model self-report (within 3 minutes) > side-channel evaluation > todo ratio > nothing**. When none exists the bar shows "evaluating" and elapsed time instead of inventing a number. The node rail uses the same priority to pick the node on display.
 
 ## Install
 
@@ -85,10 +87,10 @@ Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs
 dsh-task-progress/
 ├─ package.json       dsh manifest: bundle patch + client platform/injection order
 ├─ cordis.patch.yml   a single insert host row
-├─ index.js           Host half: projection, side-channel evaluator, milestone observation, read-only route
+├─ index.js           Host half: projection, side-channel evaluator, node observation, read-only route
 ├─ lib/progress.js    progress merging and the todo fallback
 ├─ lib/judge.js       evaluator digest and JSON contract
-├─ lib/steps.js       milestone rail reducer (max 10 steps per turn)
+├─ lib/steps.js       node rail reducer (max 10 steps per turn)
 ├─ client.js          browser half: bar, nodes, sidebar ring, settings page
 ├─ locale/{zh,en}.json titles/descriptions shown by the plugin manager
 ├─ docs/              design and implementation notes
