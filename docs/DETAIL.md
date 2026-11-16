@@ -22,6 +22,7 @@ Nodes belong to the open turn; earlier turns are never drawn:
   - the current node shows its **elapsed time** and the next node.
 - Hovering the bar grows it vertically inside 0.2 s with a soft glow; nodes share that hover hit area.
 - Nodes are keyboard-focusable and show the same card on focus.
+- A node sits at the last percentage its milestone was seen at; if a later estimate lowers the percentage, completed nodes can briefly sit to the right of the fill.
 - At most the **last 10** milestones are kept; older ones drop off the rail.
 
 The Host keeps the rail in the evaluator's memory (observed every 15 seconds), so a page refresh re-reads the same nodes. A new turn resets it. When the turn ends, the last milestone is closed at `turn/end` and kept for a short while.

@@ -307,7 +307,7 @@ export async function apply(ctx, config) {
       return {
         label: useJudge ? (judgement.milestone || state.milestone) : state.milestone,
         percent: useJudge && judgement.percent >= 0 ? judgement.percent : state.percent,
-        phase: useJudge ? judgement.phase : state.phase,
+        phase: useJudge ? (judgement.phase || state.phase) : state.phase,
       }
     }
 

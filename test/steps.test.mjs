@@ -8,12 +8,12 @@ function observe(rail, label, percent, phase, at, startedAt = 1_000) {
   return observeRail(rail, { turn: 1, label, percent, phase, at, startedAt })
 }
 
-test('the first milestone starts at the turn start', () => {
+test('the first milestone starts when it is first observed', () => {
   const rail = observe(undefined, '定位问题', 10, 'plan', 20_000)
   assert.equal(rail.turn, 1)
   assert.equal(rail.steps.length, 1)
   assert.equal(rail.steps[0].label, '定位问题')
-  assert.equal(rail.steps[0].at, 1_000, 'first step includes the work before the first label')
+  assert.equal(rail.steps[0].at, 20_000, 'a rail that starts mid-turn does not claim earlier time')
   assert.equal(rail.steps[0].endedAt, 0)
 })
 
@@ -38,7 +38,7 @@ test('a new milestone closes the previous one with its duration', () => {
       endedAt: rail.steps[0].endedAt,
       durationMs: rail.steps[0].durationMs,
     },
-    { label: '定位问题', percent: 30, endedAt: 90_000, durationMs: 89_000 },
+    { label: '定位问题', percent: 30, endedAt: 90_000, durationMs: 70_000 },
   )
   assert.equal(rail.steps[1].label, '改客户端')
   assert.equal(rail.steps[1].at, 90_000)
@@ -70,7 +70,7 @@ test('a new turn starts a fresh rail', () => {
   assert.equal(next.turn, 2)
   assert.equal(next.steps.length, 1)
   assert.equal(next.steps[0].label, '新任务')
-  assert.equal(next.steps[0].at, 199_000)
+  assert.equal(next.steps[0].at, 200_000)
 })
 
 test('the rail is bounded to the newest milestones', () => {
