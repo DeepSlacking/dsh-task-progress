@@ -1,8 +1,8 @@
 {
   "name": "dsh-task-progress",
-  "version": "0.4.5",
+  "version": "0.5.0",
   "type": "module",
-  "description": "Shows a cumulative session progress bar with completed-task nodes, phase, and next node in the session, plus a progress ring on its sidebar row, self-assessed by the session's own model at milestones.",
+  "description": "Shows the running task's progress with a milestone rail in the session and a progress ring on its sidebar row, self-assessed by the session's own model at milestones.",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
@@ -10,7 +10,7 @@
     "./icon": "./icon.svg"
   },
   "scripts": {
-    "test": "node --test test/progress.test.mjs test/client.test.mjs"
+    "test": "node --test test/progress.test.mjs test/steps.test.mjs test/client.test.mjs"
   },
   "files": [
     "index.js",
@@ -36,6 +36,12 @@
       ]
     }
   },
+  "license": "MIT",
+  "author": "DeepSlacking",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DeepSlacking/dsh-task-progress.git"
+  },
   "keywords": [
     "deepseek-harness",
     "dsh",
@@ -43,11 +49,5 @@
     "plugin",
     "progress",
     "task"
-  ],
-  "author": "DeepSlacking",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/DeepSlacking/dsh-task-progress.git"
-  },
-  "license": "MIT"
+  ]
 }

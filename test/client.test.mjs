@@ -65,7 +65,8 @@ function byClass(node, className, out = []) {
     for (const item of node) byClass(item, className, out)
     return out
   }
-  if (node.props?.className === className) out.push(node)
+  const classes = String(node.props?.className ?? '').split(/\s+/u)
+  if (classes.includes(className)) out.push(node)
   byClass(node.props?.children, className, out)
   return out
 }
