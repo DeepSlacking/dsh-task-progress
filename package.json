@@ -1,0 +1,53 @@
+{
+  "name": "dsh-task-progress",
+  "version": "0.4.5",
+  "type": "module",
+  "description": "Shows a cumulative session progress bar with completed-task nodes, phase, and next node in the session, plus a progress ring on its sidebar row, self-assessed by the session's own model at milestones.",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "scripts": {
+    "test": "node --test test/progress.test.mjs test/client.test.mjs"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "lib/*.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-workspace"
+      ]
+    }
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "cordis",
+    "plugin",
+    "progress",
+    "task"
+  ],
+  "author": "DeepSlacking",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DeepSlacking/dsh-task-progress.git"
+  },
+  "license": "MIT"
+}

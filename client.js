@@ -1,0 +1,937 @@
+/**
+ * dsh-task-progress — browser half.
+ *
+ * Two occupants over the Host's `taskProgress` session projection:
+ *  - `conversation.input.dock`: the running task's bar, phase, and next node
+ *    above the composer, visible only while the task runs (plus a short
+ *    completion hold). The bar shows the open turn's own 0–100%; every
+ *    milestone the evaluator names during that turn becomes a node, and the
+ *    milestone the page is showing right now is the outlined node at the head.
+ *  - `sidebar.session.row.trailing`: a small progress ring on the session row,
+ *    visible only for a running session and never for a finished one.
+ *
+ * Both read the projection the Host already publishes: the dock through the
+ * session-scoped `useProjection` hook, the row through the session list's
+ * projection store. The milestone rail arrives on the same read-only route as
+ * the evaluator's estimates. No polling per component, no session-log folding
+ * on the Client.
+ */
+window.__ModuleLoader__.load({
+  id: '@local/dsh-task-progress',
+  factory(require) {
+    const React = require('react')
+    const h = React.createElement
+
+    const NS = 'task-progress'
+    /** A task is "stale" after this long without a new checkpoint while running. */
+    const STALE_MS = 90_000
+    /** How long the finished state stays on screen after the turn ends. */
+    const LINGER_MS = 1500
+    /** Before this long with no checkpoint the strip stays hidden instead of flashing. */
+    const EVALUATING_AFTER_MS = 12_000
+    /** A checkpoint from the working model younger than this outranks the evaluator. */
+    const MODEL_FRESH_MS = 180_000
+    /** Poll period of the evaluator store. */
+    const JUDGE_POLL_MS = 2_000
+    /** Host route serving the evaluator's estimates and the milestone rail. */
+    const JUDGE_URL = '/api/dsh-task-progress/judgements'
+
+    const DICT = {
+      zh: {
+        'phase.plan': '规划',
+        'phase.execute': '执行',
+        'phase.verify': '验证',
+        'phase.deliver': '交付',
+        'done': '已完成',
+        'progress.aria': '任务进度',
+        'progress.eta': '约 {n} 分钟',
+        'progress.estimated': '按待办估算',
+        'progress.next': '下一步：{x}',
+        'progress.done': '任务已完成',
+        'progress.evaluating': '评估中',
+        'progress.elapsed': '已进行 {t}',
+        'progress.analyzing': '正在分析本轮进展',
+        'step.index': '里程碑 {n}',
+        'step.node': '里程碑 {n}：{x}，耗时 {t}',
+        'step.duration': '耗时 {t}',
+        'step.finished': '{t} 完成',
+        'step.running': '进行中',
+        'step.elapsed': '已用 {t}',
+        'duration.sec': '{n} 秒',
+        'duration.min': '{n} 分钟',
+        'duration.minSec': '{m} 分 {s} 秒',
+        'duration.hour': '{n} 小时',
+        'duration.hourMin': '{h} 小时 {m} 分',
+        'settings.title': '任务进度',
+        'settings.lead': '进度条显示在输入框上方，这里调整它的外观；未改动的项跟随主题。',
+        'settings.height': '进度条高度',
+        'settings.height.desc': '2–24 像素，默认 6。',
+        'settings.color': '进度条颜色',
+        'settings.color.desc': '支持 #hex、rgb()、var(--xxx)；清空则跟随主题强调色。',
+        'settings.color.value': '颜色值',
+        'settings.color.auto': '跟随主题',
+        'settings.font': '说明文字字号',
+        'settings.font.desc': '进度条下方说明行的字号，9–24 像素，默认 12。',
+        'settings.preview': '预览：执行中 · 接入事件 · 下一步：打磨',
+        'settings.reset': '恢复默认',
+      },
+      en: {
+        'phase.plan': 'Planning',
+        'phase.execute': 'Executing',
+        'phase.verify': 'Verifying',
+        'phase.deliver': 'Delivering',
+        'done': 'Done',
+        'progress.aria': 'Task progress',
+        'progress.eta': '~{n} min left',
+        'progress.estimated': 'estimated from todos',
+        'progress.next': 'Next: {x}',
+        'progress.done': 'Task complete',
+        'progress.evaluating': 'Evaluating',
+        'progress.elapsed': '{t} elapsed',
+        'progress.analyzing': 'Reviewing this turn',
+        'step.index': 'Milestone {n}',
+        'step.node': 'Milestone {n}: {x}, took {t}',
+        'step.duration': 'took {t}',
+        'step.finished': 'finished {t}',
+        'step.running': 'In progress',
+        'step.elapsed': '{t} elapsed',
+        'duration.sec': '{n}s',
+        'duration.min': '{n} min',
+        'duration.minSec': '{m}m {s}s',
+        'duration.hour': '{n} h',
+        'duration.hourMin': '{h} h {m} min',
+        'settings.title': 'Task progress',
+        'settings.lead': 'The progress strip sits above the composer; adjust its appearance here. Untouched fields follow the theme.',
+        'settings.height': 'Bar height',
+        'settings.height.desc': '2–24 px, default 6.',
+        'settings.color': 'Bar color',
+        'settings.color.desc': 'Accepts #hex, rgb(), var(--x); clear it to use the theme accent.',
+        'settings.color.value': 'Color value',
+        'settings.color.auto': 'Theme accent',
+        'settings.font': 'Explanation size',
+        'settings.font.desc': 'Font size of the line under the bar, 9–24 px, default 12.',
+        'settings.preview': 'Preview: executing · wiring events · next: polish',
+        'settings.reset': 'Reset to defaults',
+      },
+    }
+
+    /** Current UI language, used only when the slot hands no translator. */
+    function language() {
+      const lang = String(
+        (typeof document !== 'undefined' && document.documentElement && document.documentElement.lang) || 'en',
+      ).toLowerCase()
+      return lang.indexOf('zh') === 0 ? 'zh' : 'en'
+    }
+
+    /** Translate through the slot translator, falling back to this module's dictionary. */
+    function tt(t, key, params) {
+      if (typeof t === 'function') {
+        const text = t(key, params)
+        if (typeof text === 'string' && text !== key) return text
+      }
+      const dict = DICT[language()] || DICT.en
+      const template = dict[key] !== undefined ? dict[key] : key
+      if (params === undefined) return template
+      return template.replace(/\{(\w+)\}/gu, (whole, name) => (params[name] === undefined ? whole : String(params[name])))
+    }
+
+    /** Keep a completed bar on screen briefly, then hide it. */
+    function useLinger(active, ms) {
+      const [held, setHeld] = React.useState(false)
+      React.useEffect(() => {
+        if (active) setHeld(true)
+      }, [active])
+      React.useEffect(() => {
+        if (active) return undefined
+        const timer = setTimeout(() => setHeld(false), ms)
+        return () => clearTimeout(timer)
+      }, [active, ms])
+      return active || held
+    }
+
+    /** A coarse clock, ticking only while something is visible. */
+    function useNow(enabled) {
+      const [now, setNow] = React.useState(() => Date.now())
+      React.useEffect(() => {
+        if (!enabled) return undefined
+        setNow(Date.now())
+        const timer = setInterval(() => setNow(Date.now()), 1000)
+        return () => clearInterval(timer)
+      }, [enabled])
+      return now
+    }
+
+    const DOCK_CSS = [
+      // Two rows on the composer's own width axis: the bar owns the first row,
+      // the explanation the second. The width/centering formula is copied from
+      // the host's dock cards (TodoPanel) so the strip lines up with the
+      // conversation text column and follows the width handle exactly.
+      '.dtp-dock{display:flex;flex-direction:column;gap:3px;box-sizing:border-box;',
+      'width:calc(100% - var(--dsh-composer-side-clearance,16px) - var(--dsh-composer-side-clearance,16px)',
+      ' - var(--dsh-composer-dock-inset,8px) - var(--dsh-composer-dock-inset,8px)',
+      ' - var(--dsh-composer-dock-inset,8px) - var(--dsh-composer-dock-inset,8px));',
+      'max-width:calc(var(--dsh-composer-card-max-width,100%)',
+      ' - var(--dsh-composer-dock-inset,8px) - var(--dsh-composer-dock-inset,8px)',
+      ' - var(--dsh-composer-dock-inset,8px) - var(--dsh-composer-dock-inset,8px));',
+      'margin:0 auto;padding:2px 0 4px;font-size:12px;line-height:16px;',
+      'color:var(--dsw-alias-label-secondary);}',
+      '.dtp-dock[data-stale]{opacity:.72}',
+      '.dtp-row{display:flex;align-items:center;gap:8px;min-width:0;width:100%;}',
+      '.dtp-meta{font-size:var(--dtp-font-size,12px);line-height:1.45;}',
+      // The wrapper owns a taller hover target than the 6px rail itself, and
+      // negative margins keep the row's layout height unchanged while the
+      // track grows vertically on hover.
+      '.dtp-bar{position:relative;flex:1 1 auto;min-width:0;display:flex;align-items:center;',
+      'padding-block:7px;margin-block:-7px;}',
+      '.dtp-track{position:relative;flex:1 1 auto;min-width:0;width:100%;height:var(--dtp-bar-height,6px);',
+      'border-radius:999px;background:var(--dsw-alias-interactive-bg-hover);overflow:hidden;',
+      'transform-origin:center;transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s ease;}',
+      '.dtp-bar:hover .dtp-track,.dtp-bar:focus-within .dtp-track{transform:scaleY(1.9);',
+      'box-shadow:0 0 0 1px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 22%,transparent),',
+      '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 55%,transparent);}',
+      '.dtp-fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:999px;',
+      'background:var(--dtp-bar-color,var(--dsw-alias-state-business-primary));transition:width .45s ease;}',
+      '.dtp-dock[data-stale] .dtp-fill{animation:dtp-pulse 1.6s ease-in-out infinite;}',
+      '.dtp-dock[data-evaluating] .dtp-fill{animation:dtp-pulse 1.6s ease-in-out infinite;}',
+      '.dtp-scan{position:absolute;inset-block:0;inset-inline-start:0;width:34%;pointer-events:none;',
+      'border-radius:999px;opacity:.45;',
+      'background:linear-gradient(90deg,transparent,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)),transparent);',
+      'animation:dtp-slide 1.6s ease-in-out infinite;}',
+      // Milestone nodes are a sibling overlay, so the track can keep its own
+      // overflow clip for the fill.
+      '.dtp-nodes{position:absolute;inset:0;pointer-events:none;}',
+      '.dtp-node{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;padding:0;',
+      'border:0;background:transparent;border-radius:50%;pointer-events:auto;cursor:pointer;',
+      'display:inline-flex;align-items:center;justify-content:center;color:inherit;}',
+      '.dtp-node:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;}',
+      '.dtp-node-dot{display:block;width:8px;height:8px;border-radius:50%;box-sizing:border-box;',
+      'background:var(--dtp-bar-color,var(--dsw-alias-state-business-primary));',
+      'box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));',
+      'transition:transform .15s ease;}',
+      '.dtp-node-current{z-index:2}',
+      '.dtp-node-current .dtp-node-dot{width:9px;height:9px;',
+      'background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1,#fff));',
+      'border:2px solid var(--dtp-bar-color,var(--dsw-alias-state-business-primary));}',
+      '.dtp-node:hover .dtp-node-dot,.dtp-node:focus-visible .dtp-node-dot{transform:scale(1.35);}',
+      '.dtp-tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);',
+      'display:flex;flex-direction:column;gap:3px;width:max-content;max-width:280px;padding:8px 10px;',
+      'border-radius:10px;border:0.5px solid var(--dsw-alias-border-l1);',
+      'background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1,#fff));',
+      'box-shadow:0 8px 28px rgba(0,0,0,.18);color:var(--dsw-alias-label-primary);',
+      'font-size:12px;line-height:1.5;pointer-events:none;z-index:20;text-align:left;white-space:normal;}',
+      '.dtp-node[data-edge="start"] .dtp-tip{left:-4px;transform:none;}',
+      '.dtp-node[data-edge="end"] .dtp-tip{left:auto;right:-4px;transform:none;}',
+      '.dtp-tip-head{display:flex;align-items:center;gap:6px;font-size:11px;',
+      'color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-tip-badge{flex:none;padding:0 5px;border-radius:999px;font-size:10px;line-height:16px;',
+      'background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#16a34a) 14%,transparent);',
+      'color:var(--dsw-alias-state-success-primary,#16a34a);}',
+      '.dtp-tip-badge-live{background:color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 14%,transparent);',
+      'color:var(--dtp-bar-color,var(--dsw-alias-state-business-primary));}',
+      '.dtp-tip-main{font-size:13px;line-height:1.45;font-weight:600;overflow-wrap:anywhere;}',
+      '.dtp-tip-sub{font-size:11px;line-height:1.45;color:var(--dsw-alias-label-tertiary);overflow-wrap:anywhere;}',
+      '.dtp-tip-meta{font-size:11px;line-height:1.45;color:var(--dsw-alias-label-secondary);',
+      'font-variant-numeric:tabular-nums;}',
+      '.dtp-pct{flex:none;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums;}',
+      '.dtp-phase{flex:none;padding:0 7px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;',
+      'font-size:calc(var(--dtp-font-size,12px) - 1px);line-height:1.35;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-text{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      '.dtp-eta{flex:none;margin-inline-start:auto;color:var(--dsw-alias-label-tertiary);',
+      'font-variant-numeric:tabular-nums;}',
+      '@keyframes dtp-pulse{0%,100%{opacity:1}50%{opacity:.5}}',
+      '@keyframes dtp-slide{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}',
+      '@media (prefers-reduced-motion:reduce){',
+      '.dtp-track,.dtp-node-dot{transition:none}',
+      '.dtp-dock[data-stale] .dtp-fill,.dtp-dock[data-evaluating] .dtp-fill,.dtp-scan{animation:none}}',
+    ].join('')
+
+    /** Short clock for the evaluating state (`m:ss`). */
+    function clock(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000))
+      return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
+    }
+
+    /** Human duration of one milestone. */
+    function durationText(t, ms) {
+      const total = Math.max(0, Math.round((Number(ms) || 0) / 1000))
+      if (total < 60) return tt(t, 'duration.sec', { n: total })
+      const minutes = Math.floor(total / 60)
+      const seconds = total % 60
+      if (minutes < 60) {
+        return seconds === 0
+          ? tt(t, 'duration.min', { n: minutes })
+          : tt(t, 'duration.minSec', { m: minutes, s: seconds })
+      }
+      const hours = Math.floor(minutes / 60)
+      const rest = minutes % 60
+      return rest === 0
+        ? tt(t, 'duration.hour', { n: hours })
+        : tt(t, 'duration.hourMin', { h: hours, m: rest })
+    }
+
+    /** Wall-clock `HH:MM` of a completion timestamp, or `''` when unknown. */
+    function timeText(ts) {
+      if (!(Number(ts) > 0)) return ''
+      try {
+        return new Intl.DateTimeFormat(language() === 'zh' ? 'zh-CN' : 'en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        }).format(new Date(ts))
+      } catch {
+        return ''
+      }
+    }
+
+    /** A node's horizontal position, kept inside the rounded rail. */
+    function railPosition(value) {
+      const number = Number(value)
+      if (!Number.isFinite(number)) return 0
+      return Math.max(0, Math.min(99, Math.round(number * 10) / 10))
+    }
+
+    /** The open turn's milestone rail from the polled Host value. */
+    function railStepsOf(store, sessionId, turn) {
+      if (store === null || store === undefined || store.rails === null || store.rails === undefined) return []
+      const rail = store.rails[sessionId]
+      if (rail === null || rail === undefined || rail.turn !== turn || !Array.isArray(rail.steps)) return []
+      return rail.steps
+    }
+
+    /**
+     * Polled store of the Host evaluator's estimates and milestone rails,
+     * keyed by session id. It only polls while something subscribes and the
+     * page is visible.
+     */
+    function createJudgementStore(url) {
+      let snapshot = { sessions: {}, rails: {}, style: null }
+      let timer = null
+      let inFlight = false
+      const listeners = new Set()
+      const emit = () => { for (const listener of listeners) listener() }
+      const poll = async () => {
+        if (inFlight) return
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+        inFlight = true
+        try {
+          const response = await fetch(url, { headers: { accept: 'application/json' }, cache: 'no-store' })
+          if (!response.ok) return
+          const body = await response.json()
+          const value = body !== null && typeof body === 'object' && body.ok === true
+            && body.value !== null && typeof body.value === 'object' ? body.value : undefined
+          if (value === undefined) return
+          const sessions = value.sessions !== null && typeof value.sessions === 'object' ? value.sessions : {}
+          const rails = value.rails !== null && typeof value.rails === 'object' ? value.rails : {}
+          const style = value.style !== null && typeof value.style === 'object' ? value.style : null
+          const next = { sessions, rails, style }
+          if (JSON.stringify(next) === JSON.stringify(snapshot)) return
+          snapshot = next
+          emit()
+        } catch {
+          // A failing endpoint degrades to the projection's own value.
+        } finally {
+          inFlight = false
+        }
+      }
+      return {
+        getSnapshot: () => snapshot,
+        subscribe(listener) {
+          listeners.add(listener)
+          if (timer === null) {
+            void poll()
+            timer = setInterval(() => { void poll() }, JUDGE_POLL_MS)
+          }
+          return () => {
+            listeners.delete(listener)
+            if (listeners.size === 0 && timer !== null) {
+              clearInterval(timer)
+              timer = null
+            }
+          }
+        },
+      }
+    }
+
+    /** Defaults when neither the settings page, the Host row config, nor CSS set a knob. */
+    const STYLE_DEFAULTS = Object.freeze({ barHeight: 6, barColor: '', textFontSize: 12 })
+    /** localStorage key of the appearance overrides edited in Settings. */
+    const STYLE_KEY = 'dsh-task-progress.style.v1'
+
+    /** Read the saved appearance overrides, discarding anything unusable. */
+    function readStyleOverrides() {
+      try {
+        const raw = window.localStorage.getItem(STYLE_KEY)
+        if (raw === null || raw === undefined || raw === '') return {}
+        const parsed = JSON.parse(raw)
+        if (parsed === null || typeof parsed !== 'object') return {}
+        const out = {}
+        if (Number.isFinite(parsed.barHeight) && parsed.barHeight > 0) out.barHeight = Math.min(24, Math.round(parsed.barHeight))
+        if (typeof parsed.barColor === 'string' && parsed.barColor !== '') out.barColor = parsed.barColor.slice(0, 40)
+        if (Number.isFinite(parsed.textFontSize) && parsed.textFontSize > 0) out.textFontSize = Math.min(24, Math.round(parsed.textFontSize))
+        return out
+      } catch {
+        return {}
+      }
+    }
+
+    /** Observable store of the appearance overrides edited in Settings. */
+    function createStyleStore() {
+      let snapshot = readStyleOverrides()
+      const listeners = new Set()
+      const emit = () => { for (const listener of listeners) listener() }
+      const persist = () => {
+        try {
+          if (Object.keys(snapshot).length === 0) window.localStorage.removeItem(STYLE_KEY)
+          else window.localStorage.setItem(STYLE_KEY, JSON.stringify(snapshot))
+        } catch {
+          // Storage can be blocked; the in-memory value still applies.
+        }
+      }
+      return {
+        getSnapshot: () => snapshot,
+        subscribe(listener) {
+          listeners.add(listener)
+          return () => { listeners.delete(listener) }
+        },
+        set(patch) {
+          const next = { ...snapshot }
+          for (const key of Object.keys(patch)) {
+            const value = patch[key]
+            if (value === undefined || value === null || value === '' || value === 0) delete next[key]
+            else next[key] = value
+          }
+          snapshot = next
+          persist()
+          emit()
+        },
+        reset() {
+          snapshot = {}
+          persist()
+          emit()
+        },
+      }
+    }
+
+    /**
+     * Merge the three layers of one presentation knob.
+     * Settings (local) > Host row config > theme default. The `explicit*`
+     * flags say whether a layer set the knob, so the strip only overrides the
+     * CSS variable it actually owns and everything else keeps the theme.
+     */
+    function resolveStyle(host, local) {
+      const h = host !== null && host !== undefined ? host : {}
+      const l = local !== null && local !== undefined ? local : {}
+      const height = l.barHeight > 0 ? l.barHeight : h.barHeight > 0 ? h.barHeight : 0
+      const font = l.textFontSize > 0 ? l.textFontSize : h.textFontSize > 0 ? h.textFontSize : 0
+      const color = typeof l.barColor === 'string' && l.barColor !== ''
+        ? l.barColor
+        : typeof h.barColor === 'string' ? h.barColor : ''
+      return {
+        barHeight: height > 0 ? height : STYLE_DEFAULTS.barHeight,
+        barColor: color,
+        textFontSize: font > 0 ? font : STYLE_DEFAULTS.textFontSize,
+        explicitHeight: height > 0,
+        explicitColor: color !== '',
+        explicitFont: font > 0,
+      }
+    }
+
+    /**
+     * Overlay the evaluator's estimate on the projection value.
+     * @param progress - the session's `taskProgress` projection value.
+     * @param judgement - this session's evaluator entry, if any.
+     * @param now - wall clock used for the freshness rule.
+     * @returns the value the UI should show.
+     */
+    function mergeJudgement(progress, judgement, now) {
+      if (progress === undefined || progress === null || progress.turn <= 0) return progress
+      if (progress.done === true) return progress
+      // The working model's own checkpoint is the best signal while it is fresh.
+      if (progress.source === 'model' && now - progress.updatedAt < MODEL_FRESH_MS) return progress
+      if (judgement === undefined || judgement === null || judgement.turn !== progress.turn) return progress
+      // An estimate computed before this turn began describes the previous task,
+      // even if a sweep raced it onto the new turn number.
+      const at = typeof judgement.at === 'number' ? judgement.at : 0
+      if (at < progress.startedAt) return progress
+      if (!(judgement.percent >= 0)) return progress
+      return {
+        ...progress,
+        percent: judgement.percent,
+        source: 'judge',
+        phase: judgement.phase || progress.phase,
+        milestone: judgement.milestone || progress.milestone,
+        next: judgement.next || progress.next,
+        etaMin: judgement.etaMin > 0 ? judgement.etaMin : progress.etaMin,
+        updatedAt: Math.max(progress.updatedAt, judgement.at || 0),
+      }
+    }
+
+    /**
+     * The running task's strip above the composer.
+     * @param useJudgements - hook over the evaluator/rail store.
+     * @param useStyle - hook over the appearance overrides.
+     */
+    function makeProgressDock(useJudgements, useStyle) {
+      return function ProgressDock(props) {
+        const t = props.t
+        const raw = props.useProjection('taskProgress')
+        const store = useJudgements()
+        // Every hook must run before the first early return: the strip mounts
+        // hidden and becomes visible later, so a hook added below a `return`
+        // would change the hook count between renders and crash the slot.
+        const local = useStyle()
+        const [hovered, setHovered] = React.useState(null)
+        const entries = store !== null && store !== undefined && store.sessions !== null && store.sessions !== undefined
+          ? store.sessions : {}
+        const sessionId = props.session !== undefined && props.session !== null ? props.session.sessionId : undefined
+        const progress = mergeJudgement(
+          raw,
+          sessionId !== undefined ? entries[sessionId] : undefined,
+          Date.now(),
+        )
+        const running = props.session !== undefined && props.session !== null && props.session.running === true
+        // A finished task stops counting as active immediately: the linger below
+        // keeps the completed bar for a moment, then hides it even while the
+        // session itself stays busy with background work.
+        const active = running && progress !== undefined && progress !== null && progress.turn > 0 && progress.done !== true
+        const visible = useLinger(active, LINGER_MS)
+        const now = useNow(visible)
+        if (!visible || progress === undefined || progress === null || progress.turn === 0) return null
+        const done = progress.done === true
+        const known = progress.percent >= 0
+        // A long first step (or a long tool batch) has no checkpoint yet: the
+        // model is blocked and cannot report. Show that a task is under
+        // evaluation instead of leaving the row blank or inventing a number.
+        const evaluating = !done && !known && progress.startedAt > 0
+          && now - progress.startedAt >= EVALUATING_AFTER_MS
+        if (!done && !known && !evaluating) return null
+        const percent = done ? 100 : known ? progress.percent : 0
+        const stale = running && !done && known && progress.updatedAt > 0 && now - progress.updatedAt > STALE_MS
+        const phase = done ? tt(t, 'done') : known ? tt(t, `phase.${progress.phase}`) : tt(t, 'progress.evaluating')
+        const next = progress.next || ''
+        const elapsed = progress.startedAt > 0 ? now - progress.startedAt : 0
+        const detailParts = []
+        if (progress.milestone !== '') detailParts.push(progress.milestone)
+        if (next !== '') detailParts.push(tt(t, 'progress.next', { x: next }))
+        const detail = evaluating ? tt(t, 'progress.analyzing') : detailParts.join(' · ')
+        // Configured presentation rides CSS variables on the strip itself, so it
+        // only overrides what the owner actually set; unset knobs keep the theme.
+        const tuned = resolveStyle(
+          store !== null && store !== undefined ? store.style : null,
+          local,
+        )
+        const styleVars = {}
+        if (tuned.explicitHeight) styleVars['--dtp-bar-height'] = `${tuned.barHeight}px`
+        if (tuned.explicitColor) styleVars['--dtp-bar-color'] = tuned.barColor
+        if (tuned.explicitFont) styleVars['--dtp-font-size'] = `${tuned.textFontSize}px`
+        const fill = Math.max(2, evaluating ? 0 : Math.min(100, percent))
+        // The rail is per turn: a milestone the evaluator superseded is a
+        // completed node; the milestone on screen now is the outlined head.
+        const steps = sessionId !== undefined ? railStepsOf(store, sessionId, progress.turn) : []
+        const closed = steps.filter(step => step !== null && typeof step === 'object' && step.endedAt > 0)
+        const open = steps.length > 0 ? steps[steps.length - 1] : undefined
+        const currentLabel = progress.milestone || ''
+        const currentSince = open !== undefined && open.endedAt === 0 && open.label === currentLabel
+          ? open.at
+          : (progress.updatedAt > 0 ? progress.updatedAt : progress.startedAt)
+        const showCurrent = !done && !evaluating && known && currentLabel !== ''
+        const nodes = []
+        const edge = position => (position < 16 ? 'start' : position > 84 ? 'end' : undefined)
+        for (let index = 0; index < closed.length; index += 1) {
+          const step = closed[index]
+          const position = railPosition(step.percent)
+          const label = step.label || ''
+          const took = durationText(t, step.durationMs)
+          const finished = timeText(step.endedAt)
+          const meta = [tt(t, `phase.${step.phase}`)]
+          meta.push(tt(t, 'step.duration', { t: took }))
+          if (finished !== '') meta.push(tt(t, 'step.finished', { t: finished }))
+          const key = `step-${index}`
+          const activeNode = hovered === key
+          nodes.push(h(
+            'button',
+            {
+              key,
+              type: 'button',
+              className: 'dtp-node',
+              style: { left: `${position}%` },
+              'data-edge': edge(position),
+              'aria-label': tt(t, 'step.node', { n: index + 1, x: label, t: took }),
+              onMouseEnter: () => setHovered(key),
+              onMouseLeave: () => setHovered(value => (value === key ? null : value)),
+              onFocus: () => setHovered(key),
+              onBlur: () => setHovered(value => (value === key ? null : value)),
+            },
+            h('span', { className: 'dtp-node-dot' }),
+            activeNode
+              ? h(
+                'span',
+                { className: 'dtp-tip', role: 'tooltip' },
+                h(
+                  'span',
+                  { className: 'dtp-tip-head' },
+                  h('span', null, tt(t, 'step.index', { n: index + 1 })),
+                  h('span', { className: 'dtp-tip-badge' }, tt(t, 'done')),
+                ),
+                h('span', { className: 'dtp-tip-main' }, label),
+                h('span', { className: 'dtp-tip-meta' }, meta.join(' · ')),
+              )
+              : null,
+          ))
+        }
+        if (showCurrent) {
+          const index = closed.length + 1
+          const position = railPosition(progress.percent)
+          const took = durationText(t, Math.max(0, now - currentSince))
+          const key = 'current'
+          const activeNode = hovered === key
+          const meta = [tt(t, `phase.${progress.phase}`), tt(t, 'step.elapsed', { t: took })]
+          nodes.push(h(
+            'button',
+            {
+              key,
+              type: 'button',
+              className: 'dtp-node dtp-node-current',
+              style: { left: `${position}%` },
+              'data-edge': edge(position),
+              'aria-label': tt(t, 'step.node', { n: index, x: currentLabel, t: took }),
+              onMouseEnter: () => setHovered(key),
+              onMouseLeave: () => setHovered(value => (value === key ? null : value)),
+              onFocus: () => setHovered(key),
+              onBlur: () => setHovered(value => (value === key ? null : value)),
+            },
+            h('span', { className: 'dtp-node-dot' }),
+            activeNode
+              ? h(
+                'span',
+                { className: 'dtp-tip', role: 'tooltip' },
+                h(
+                  'span',
+                  { className: 'dtp-tip-head' },
+                  h('span', null, tt(t, 'step.index', { n: index })),
+                  h('span', { className: 'dtp-tip-badge dtp-tip-badge-live' }, tt(t, 'step.running')),
+                ),
+                h('span', { className: 'dtp-tip-main' }, currentLabel),
+                next !== '' ? h('span', { className: 'dtp-tip-sub' }, tt(t, 'progress.next', { x: next })) : null,
+                h('span', { className: 'dtp-tip-meta' }, meta.join(' · ')),
+              )
+              : null,
+          ))
+        }
+        return h(
+          React.Fragment,
+          null,
+          h('style', { key: 'dtp-style' }, DOCK_CSS),
+          h(
+            'div',
+            {
+              className: 'dtp-dock',
+              style: styleVars,
+              'data-stale': stale ? '' : undefined,
+              'data-evaluating': evaluating ? '' : undefined,
+            },
+            // Row 1: the task's bar and its milestone rail.
+            h(
+              'div',
+              { className: 'dtp-row' },
+              h(
+                'div',
+                { className: 'dtp-bar' },
+                h(
+                  'div',
+                  {
+                    className: 'dtp-track',
+                    role: 'progressbar',
+                    'aria-label': tt(t, 'progress.aria'),
+                    'aria-valuemin': 0,
+                    'aria-valuemax': 100,
+                    'aria-valuenow': evaluating ? undefined : percent,
+                    'aria-busy': evaluating ? true : undefined,
+                  },
+                  h('div', {
+                    className: 'dtp-fill',
+                    style: { width: `${fill}%` },
+                  }),
+                  evaluating ? h('div', { className: 'dtp-scan' }) : null,
+                ),
+                nodes.length > 0 ? h('div', { className: 'dtp-nodes' }, nodes) : null,
+              ),
+              evaluating
+                ? null
+                : h(
+                  'span',
+                  { className: 'dtp-pct' },
+                  `${!done && progress.source === 'todo' ? '≈' : ''}${percent}%`,
+                ),
+            ),
+            // Row 2: what the number means — phase, current node, next node, time.
+            h(
+              'div',
+              { className: 'dtp-row dtp-meta' },
+              h('span', { className: 'dtp-phase' }, phase),
+              detail === '' ? null : h('span', { className: 'dtp-text', title: detail }, detail),
+              evaluating
+                ? h('span', { className: 'dtp-eta' }, tt(t, 'progress.elapsed', { t: clock(elapsed) }))
+                : !done && progress.etaMin > 0
+                  ? h('span', { className: 'dtp-eta' }, tt(t, 'progress.eta', { n: progress.etaMin }))
+                  : null,
+            ),
+          ),
+        )
+      }
+    }
+
+    /**
+     * The ring beside the session row's time label.
+     * @param sessions - client sessions service (list store).
+     * @param useJudgements - hook over the evaluator store.
+     */
+    function makeRowTrailing(sessions, useJudgements, useStyle) {
+      return function RowTrailing(props) {
+        const t = props.t
+        const judgements = useJudgements()
+        // Hooks stay above every early return (the row mounts only for some
+        // sessions), so the ring can reuse the same appearance overrides.
+        const local = useStyle()
+        const state = React.useSyncExternalStore(
+          listener => sessions.list.subscribe(listener),
+          () => sessions.list.getSnapshot(),
+        )
+        const summary = state !== null && state !== undefined && state.byId !== undefined
+          ? state.byId[props.sessionId]
+          : undefined
+        if (summary === undefined || summary === null) return null
+        if (summary.blank === true || summary.running !== true) return null
+        if (summary.parentSessionId !== undefined || summary.origin === 'subagent') return null
+        const live = state.projectionsBySession !== undefined && state.projectionsBySession[props.sessionId] !== undefined
+          ? state.projectionsBySession[props.sessionId].values
+          : undefined
+        const raw = live !== undefined && live.taskProgress !== undefined
+          ? live.taskProgress
+          : summary.projectionValues !== undefined ? summary.projectionValues.taskProgress : undefined
+        const progress = mergeJudgement(
+          raw,
+          judgements !== null && judgements !== undefined && judgements.sessions !== null && judgements.sessions !== undefined
+            ? judgements.sessions[props.sessionId]
+            : undefined,
+          Date.now(),
+        )
+        if (progress === undefined || progress === null || progress.turn === 0) return null
+        if (progress.done === true || !(progress.percent >= 0)) return null
+        const percent = progress.percent
+        // The ring follows the same configured color as the composer bar.
+        const tuned = resolveStyle(
+          judgements !== null && judgements !== undefined ? judgements.style : null,
+          local,
+        )
+        const size = 13
+        const stroke = 1.75
+        const radius = (size - stroke) / 2
+        const length = 2 * Math.PI * radius
+        const tip = progress.milestone === ''
+          ? tt(t, `phase.${progress.phase}`)
+          : `${tt(t, `phase.${progress.phase}`)} · ${progress.milestone}`
+        return h(
+          'span',
+          {
+            title: `${tip} · ${percent}%`,
+            style: {
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              marginInlineStart: '6px',
+              color: 'var(--dsw-alias-label-tertiary)',
+              fontSize: '11px',
+              lineHeight: '14px',
+              fontVariantNumeric: 'tabular-nums',
+              pointerEvents: 'none',
+              ...(tuned.explicitColor ? { '--dtp-bar-color': tuned.barColor } : {}),
+            },
+          },
+          h(
+            'svg',
+            { width: size, height: size, viewBox: `0 0 ${size} ${size}`, 'aria-hidden': true, style: { display: 'block' } },
+            h('circle', {
+              cx: size / 2, cy: size / 2, r: radius, fill: 'none',
+              stroke: 'currentColor', strokeOpacity: 0.22, strokeWidth: stroke,
+            }),
+            h('circle', {
+              cx: size / 2, cy: size / 2, r: radius, fill: 'none',
+              stroke: 'var(--dtp-bar-color,var(--dsw-alias-state-business-primary))', strokeWidth: stroke, strokeLinecap: 'round',
+              strokeDasharray: `${length} ${length}`,
+              strokeDashoffset: length * (1 - percent / 100),
+              transform: `rotate(-90 ${size / 2} ${size / 2})`,
+              style: { transition: 'stroke-dashoffset .4s ease' },
+            }),
+          ),
+          h('span', null, `${percent}%`),
+        )
+      }
+    }
+
+    /** Settings-section styles, mirroring the host's row rhythm. */
+    const SETTINGS_CSS = [
+      '.dtp-set{display:flex;flex-direction:column;width:100%;max-width:680px;color:var(--dsw-alias-label-primary);}',
+      '.dtp-set-heading{margin:0 0 2px;font-size:14px;font-weight:600;line-height:22px;}',
+      '.dtp-set-lead{margin:0 0 8px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-set-row{display:flex;align-items:center;gap:8px;padding:14px 0;',
+      'border-bottom:0.5px solid var(--dsw-alias-border-l2);}',
+      '.dtp-set-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding-right:24px;}',
+      '.dtp-set-title{font-size:14px;line-height:22px;color:var(--dsw-alias-label-primary);}',
+      '.dtp-set-desc{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-set-control{display:flex;align-items:center;gap:6px;flex:none;}',
+      '.dtp-set-num{width:78px;height:30px;box-sizing:border-box;padding:0 8px;border-radius:8px;',
+      'border:0.5px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-primary);',
+      'font:inherit;font-size:13px;font-variant-numeric:tabular-nums;}',
+      '.dtp-set-num:focus-visible,.dtp-set-text-input:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px;}',
+      '.dtp-set-unit{font-size:12px;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-set-color{width:34px;height:30px;padding:2px;border-radius:8px;cursor:pointer;',
+      'border:0.5px solid var(--dsw-alias-border-l2);background:transparent;}',
+      '.dtp-set-text-input{width:150px;height:30px;box-sizing:border-box;padding:0 8px;border-radius:8px;',
+      'border:0.5px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-primary);',
+      'font:inherit;font-size:13px;}',
+      '.dtp-set-preview{display:flex;flex-direction:column;gap:4px;padding:14px 0;',
+      'border-bottom:0.5px solid var(--dsw-alias-border-l2);}',
+      '.dtp-set-track{position:relative;width:100%;border-radius:999px;',
+      'background:var(--dsw-alias-interactive-bg-hover);overflow:hidden;}',
+      '.dtp-set-fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:999px;}',
+      '.dtp-set-node{position:absolute;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;',
+      'box-sizing:border-box;background:var(--dsw-alias-state-business-primary);',
+      'box-shadow:0 0 0 1.5px var(--dsw-alias-bg-layer-1,#fff);}',
+      '.dtp-set-node-current{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;',
+      'background:var(--dsw-alias-bg-layer-1,#fff);border:2px solid var(--dsw-alias-state-business-primary);}',
+      '.dtp-set-caption{color:var(--dsw-alias-label-secondary);}',
+      '.dtp-set-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:14px;}',
+      '.dtp-set-btn{height:30px;padding:0 14px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px;',
+      'border:0.5px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-primary);}',
+      '.dtp-set-btn:hover:enabled{background:var(--dsw-alias-interactive-bg-hover);}',
+      '.dtp-set-btn:disabled{opacity:.45;cursor:default;}',
+    ].join('')
+
+    /**
+     * The Settings section: three rows plus a live preview.
+     * @param store - appearance override store (set/reset).
+     * @param useStyle - hook over the overrides.
+     * @param useJudgements - hook over the evaluator store (carries the Host config).
+     */
+    function makeSettingsPage(store, useStyle, useJudgements) {
+      return function TaskProgressSettings(props) {
+        const t = props.t
+        const local = useStyle()
+        const judgements = useJudgements()
+        const tuned = resolveStyle(
+          judgements !== null && judgements !== undefined ? judgements.style : null,
+          local,
+        )
+        const overridden = Object.keys(local !== null && local !== undefined ? local : {}).length > 0
+        const commitNumber = (key, min, max) => event => {
+          const parsed = Math.round(Number(event.target.value))
+          const value = Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : 0
+          store.set({ [key]: value })
+        }
+        const commitColor = event => store.set({ barColor: String(event.target.value).slice(0, 40) })
+        const blurOnEnter = event => { if (event.key === 'Enter') event.currentTarget.blur() }
+        const color = tuned.barColor === '' ? 'var(--dsw-alias-state-business-primary)' : tuned.barColor
+        const row = (title, desc, control) => h('div', { className: 'dtp-set-row', key: title },
+          h('div', { className: 'dtp-set-text' },
+            h('div', { className: 'dtp-set-title' }, title),
+            h('div', { className: 'dtp-set-desc' }, desc),
+          ),
+          h('div', { className: 'dtp-set-control' }, control),
+        )
+        return h(
+          React.Fragment,
+          null,
+          h('style', { key: 'dtp-set-style' }, SETTINGS_CSS),
+          h('div', { className: 'dtp-set' },
+            h('h2', { className: 'dtp-set-heading' }, tt(t, 'settings.title')),
+            h('p', { className: 'dtp-set-lead' }, tt(t, 'settings.lead')),
+            row(tt(t, 'settings.height'), tt(t, 'settings.height.desc'), [
+              h('input', {
+                key: `h${tuned.barHeight}`, className: 'dtp-set-num', type: 'number',
+                min: 2, max: 24, step: 1, defaultValue: tuned.barHeight,
+                'aria-label': tt(t, 'settings.height'),
+                onBlur: commitNumber('barHeight', 2, 24), onKeyDown: blurOnEnter,
+              }),
+              h('span', { key: 'u', className: 'dtp-set-unit' }, 'px'),
+            ]),
+            row(tt(t, 'settings.color'), tt(t, 'settings.color.desc'), [
+              h('input', {
+                key: 'swatch', className: 'dtp-set-color', type: 'color',
+                value: /^#[0-9a-fA-F]{6}$/u.test(tuned.barColor) ? tuned.barColor : '#2f6df6',
+                'aria-label': tt(t, 'settings.color'),
+                onChange: event => store.set({ barColor: event.target.value }),
+              }),
+              h('input', {
+                key: `c${tuned.barColor}`, className: 'dtp-set-text-input', type: 'text', spellCheck: false,
+                defaultValue: tuned.barColor, placeholder: tt(t, 'settings.color.auto'),
+                'aria-label': tt(t, 'settings.color.value'),
+                onBlur: commitColor, onKeyDown: blurOnEnter,
+              }),
+            ]),
+            row(tt(t, 'settings.font'), tt(t, 'settings.font.desc'), [
+              h('input', {
+                key: `f${tuned.textFontSize}`, className: 'dtp-set-num', type: 'number',
+                min: 9, max: 24, step: 1, defaultValue: tuned.textFontSize,
+                'aria-label': tt(t, 'settings.font'),
+                onBlur: commitNumber('textFontSize', 9, 24), onKeyDown: blurOnEnter,
+              }),
+              h('span', { key: 'u', className: 'dtp-set-unit' }, 'px'),
+            ]),
+            h('div', { className: 'dtp-set-preview' },
+              h('div', { className: 'dtp-set-track', style: { height: `${tuned.barHeight}px` } },
+                h('div', {
+                  className: 'dtp-set-fill',
+                  style: { width: '74%', background: color },
+                }),
+                h('span', { className: 'dtp-set-node', style: { left: '33.33%', background: color } }),
+                h('span', { className: 'dtp-set-node dtp-set-node-current', style: { left: '74%', borderColor: color } }),
+              ),
+              h('div', { className: 'dtp-set-caption', style: { fontSize: `${tuned.textFontSize}px` } },
+                tt(t, 'settings.preview')),
+            ),
+            h('div', { className: 'dtp-set-actions' },
+              h('button', {
+                type: 'button', className: 'dtp-set-btn', disabled: !overridden,
+                onClick: () => store.reset(),
+              }, tt(t, 'settings.reset')),
+            ),
+          ),
+        )
+      }
+    }
+
+    return {
+      inject: ['slots', 'locale', 'sessions'],
+      apply(ctx) {
+        ctx.effect(() => ctx.locale.register(NS, DICT), 'dsh-task-progress: dictionaries')
+        const judgements = createJudgementStore(JUDGE_URL)
+        const useJudgements = () => React.useSyncExternalStore(judgements.subscribe, judgements.getSnapshot)
+        const styleStore = createStyleStore()
+        const useStyle = () => React.useSyncExternalStore(styleStore.subscribe, styleStore.getSnapshot)
+        const ProgressDock = makeProgressDock(useJudgements, useStyle)
+        const RowTrailing = makeRowTrailing(ctx.sessions, useJudgements, useStyle)
+        const SettingsPage = makeSettingsPage(styleStore, useStyle, useJudgements)
+        ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
+          name: 'conversation.input.dock',
+          id: 'task-progress',
+          order: 10,
+          locale: NS,
+        }, ProgressDock))
+        ctx.slots.inject('sidebar.session.row.trailing', () => ctx.slots.register({
+          name: 'sidebar.session.row.trailing',
+          id: 'task-progress',
+          order: 50,
+          locale: NS,
+        }, RowTrailing))
+        ctx.slots.inject('settings.section', () => ctx.slots.register({
+          name: 'settings.section',
+          id: 'task-progress',
+          order: 60,
+          label: () => tt(null, 'settings.title'),
+          locale: NS,
+        }, SettingsPage))
+      },
+    }
+  },
+})

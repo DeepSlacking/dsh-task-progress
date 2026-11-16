@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Task progress",
+    "description": "Shows a cumulative progress bar across the session's tasks, plus phase and next node, and marks completed tasks as nodes with hover details and durations. The session's sidebar row also carries a progress ring. The session's own model records checkpoints at milestones (report_progress); before the first checkpoint the bar is estimated from the todo list. Nothing is shown once the task ends or the session is idle.",
+    "detail": "docs/DETAIL.md"
+  }
+}
