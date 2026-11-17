@@ -1,6 +1,6 @@
 {
   "name": "dsh-task-progress",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "type": "module",
   "description": "Shows the running task's progress with a node rail in the session and a progress ring on its sidebar row, self-assessed by the session's own model at nodes.",
   "exports": {

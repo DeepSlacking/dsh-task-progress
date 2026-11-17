@@ -206,6 +206,30 @@ test('the bar shows the open task percent with one node per closed milestone', a
   assert.equal(byClass(tree, 'dtp-tip').length, 0)
 })
 
+test('expanding the node list shows the current node first and completed nodes in time order', async () => {
+  const { store } = fixture()
+  const { render } = await loadDock(store)
+  let tree = render()
+  const trigger = byClass(tree, 'dtp-expand')[0]
+  assert.ok(trigger, 'expand trigger rendered')
+  assert.equal(textOf(trigger), '▸节点2')
+  assert.equal(trigger.props['aria-expanded'], false)
+  trigger.props.onClick()
+  tree = render()
+  assert.equal(byClass(tree, 'dtp-expand')[0].props['aria-expanded'], true)
+  const rows = byClass(tree, 'dtp-list-row')
+  assert.equal(rows.length, 2)
+  assert.match(textOf(rows[0]), /节点 1/)
+  assert.match(textOf(rows[0]), /进行中/)
+  assert.match(textOf(rows[0]), /改客户端样式/)
+  assert.match(textOf(rows[0]), /已用/)
+  assert.match(textOf(rows[1]), /节点 0/)
+  assert.match(textOf(rows[1]), /已完成/)
+  assert.match(textOf(rows[1]), /定位问题/)
+  assert.match(textOf(rows[1]), /耗时 5 分钟/)
+  assert.equal(byClass(tree, 'dtp-list-rule').length, 1)
+})
+
 test('hovering a closed milestone shows its label, duration, and finish time', async () => {
   const { store } = fixture()
   const { render } = await loadDock(store)

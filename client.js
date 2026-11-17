@@ -57,6 +57,11 @@ window.__ModuleLoader__.load({
         'step.finished': '{t} 完成',
         'step.running': '进行中',
         'step.elapsed': '已用 {t}',
+        'list.title': '节点',
+        'list.expand': '展开节点列表',
+        'list.collapse': '收起节点列表',
+        'list.aria': '节点列表',
+        'list.colon': '：',
         'duration.sec': '{n} 秒',
         'duration.min': '{n} 分钟',
         'duration.minSec': '{m} 分 {s} 秒',
@@ -73,6 +78,9 @@ window.__ModuleLoader__.load({
         'settings.font': '说明文字字号',
         'settings.font.desc': '进度条下方说明行的字号，9–24 像素，默认 12。',
         'settings.preview': '预览：执行中 · 接入事件 · 下一步：打磨',
+        'settings.preview.done': '预览：节点已完成',
+        'settings.preview.live': '预览：正在调整外观',
+        'settings.preview.next': '检查节点详情卡',
         'settings.reset': '恢复默认',
       },
       en: {
@@ -95,6 +103,11 @@ window.__ModuleLoader__.load({
         'step.finished': 'finished {t}',
         'step.running': 'In progress',
         'step.elapsed': '{t} elapsed',
+        'list.title': 'Nodes',
+        'list.expand': 'Expand node list',
+        'list.collapse': 'Collapse node list',
+        'list.aria': 'Node list',
+        'list.colon': ': ',
         'duration.sec': '{n}s',
         'duration.min': '{n} min',
         'duration.minSec': '{m}m {s}s',
@@ -111,6 +124,9 @@ window.__ModuleLoader__.load({
         'settings.font': 'Explanation size',
         'settings.font.desc': 'Font size of the line under the bar, 9–24 px, default 12.',
         'settings.preview': 'Preview: executing · wiring events · next: polish',
+        'settings.preview.done': 'Preview: node finished',
+        'settings.preview.live': 'Preview: tuning the appearance',
+        'settings.preview.next': 'Check the node card',
         'settings.reset': 'Reset to defaults',
       },
     }
@@ -186,7 +202,7 @@ window.__ModuleLoader__.load({
       '.dtp-track{position:relative;flex:1 1 auto;min-width:0;width:100%;height:var(--dtp-bar-height,6px);',
       'border-radius:999px;background:var(--dsw-alias-interactive-bg-hover);overflow:hidden;',
       'transform-origin:center;transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s ease;}',
-      '.dtp-bar:hover .dtp-track,.dtp-bar:focus-within .dtp-track{transform:scaleY(1.9);',
+      '.dtp-bar:hover .dtp-track{transform:scaleY(1.9);',
       'box-shadow:0 0 0 1px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 22%,transparent),',
       '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 55%,transparent);}',
       '.dtp-fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:999px;',
@@ -238,6 +254,32 @@ window.__ModuleLoader__.load({
       '.dtp-text{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
       '.dtp-eta{flex:none;margin-inline-start:auto;color:var(--dsw-alias-label-tertiary);',
       'font-variant-numeric:tabular-nums;}',
+      '.dtp-expand{flex:none;display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;',
+      'border:0.5px solid var(--dsw-alias-border-l1);border-radius:999px;background:transparent;',
+      'color:var(--dsw-alias-label-secondary);cursor:pointer;font:inherit;font-size:11px;line-height:18px;',
+      'font-variant-numeric:tabular-nums;}',
+      '.dtp-expand:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary);}',
+      '.dtp-expand:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px;}',
+      '.dtp-expand-arrow{font-size:10px;line-height:1;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-expand-badge{min-width:16px;padding:0 4px;border-radius:999px;text-align:center;',
+      'background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 14%,transparent);',
+      'color:var(--dsw-alias-state-business-primary);font-size:10px;line-height:16px;}',
+      '.dtp-list{margin-top:2px;border:0.5px solid var(--dsw-alias-border-l1);border-radius:8px;',
+      'background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));padding:3px 0;',
+      'max-height:180px;overflow:auto;font-size:11px;line-height:1.5;}',
+      '.dtp-list-row{display:flex;align-items:baseline;gap:5px;padding:2px 8px;min-width:0;}',
+      '.dtp-list-row-live{background:color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 6%,transparent);}',
+      '.dtp-list-index{flex:none;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums;}',
+      '.dtp-list-badge{flex:none;padding:0 5px;border-radius:999px;font-size:10px;line-height:16px;',
+      'background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#16a34a) 14%,transparent);',
+      'color:var(--dsw-alias-state-success-primary,#16a34a);}',
+      '.dtp-list-badge-live{background:color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 14%,transparent);',
+      'color:var(--dtp-bar-color,var(--dsw-alias-state-business-primary));}',
+      '.dtp-list-colon{flex:none;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-list-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
+      'color:var(--dsw-alias-label-secondary);}',
+      '.dtp-list-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;white-space:nowrap;}',
+      '.dtp-list-rule{height:1px;margin:3px 8px;background:var(--dsw-alias-border-l1);}',
       '@keyframes dtp-pulse{0%,100%{opacity:1}50%{opacity:.5}}',
       '@keyframes dtp-slide{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}',
       '@media (prefers-reduced-motion:reduce){',
@@ -481,6 +523,7 @@ window.__ModuleLoader__.load({
         // would change the hook count between renders and crash the slot.
         const local = useStyle()
         const [hovered, setHovered] = React.useState(null)
+        const [listOpen, setListOpen] = React.useState(false)
         const entries = store !== null && store !== undefined && store.sessions !== null && store.sessions !== undefined
           ? store.sessions : {}
         const sessionId = props.session !== undefined && props.session !== null ? props.session.sessionId : undefined
@@ -528,48 +571,67 @@ window.__ModuleLoader__.load({
         // The rail is per turn: a milestone the evaluator superseded is a
         // completed node; the milestone on screen now is the outlined head.
         const steps = sessionId !== undefined ? railStepsOf(store, sessionId, progress.turn) : []
-        const allClosed = steps.filter(step => step !== null && typeof step === 'object' && step.endedAt > 0)
+        const allEntries = steps
+          .map((step, index) => ({ step, index }))
+          .filter(entry => entry.step !== null && typeof entry.step === 'object')
+        const closedEntries = allEntries.filter(entry => entry.step.endedAt > 0)
         // A completed node beyond the current fill belongs to an earlier, higher
         // estimate; showing it there would label a future task as already done.
         const currentPercent = known ? Math.max(0, Math.min(100, progress.percent)) : 100
-        const visibleSteps = done
-          ? allClosed
+        const visibleEntries = done
+          ? closedEntries
           : known
-            ? allClosed.filter(step => {
-              const value = Number(step.percent)
+            ? closedEntries.filter(entry => {
+              const value = Number(entry.step.percent)
               return !Number.isFinite(value) || value <= currentPercent + 0.5
             })
             : []
-        // Number the nodes left to right, and nudge coincident nodes apart so
-        // each one stays hoverable (including the one under the current node).
-        const closed = [...visibleSteps].sort((left, right) => Number(left.percent) - Number(right.percent))
-        const open = steps.length > 0 ? steps[steps.length - 1] : undefined
+        // The bar is spatial, but node numbers stay chronological so the card and
+        // the expanded list agree on which node is which.
+        const closed = [...visibleEntries].sort((left, right) => Number(left.step.percent) - Number(right.step.percent))
+        const open = steps.length > 0 && steps[steps.length - 1] !== null && typeof steps[steps.length - 1] === 'object'
+          ? { step: steps[steps.length - 1], index: steps.length - 1 }
+          : undefined
+        const currentIndex = open !== undefined ? open.index : steps.length
         const currentLabel = progress.milestone || ''
-        const currentSince = open !== undefined && open.endedAt === 0 && open.label === currentLabel
-          ? open.at
+        const currentSince = open !== undefined && open.step.endedAt === 0 && open.step.label === currentLabel
+          ? open.step.at
           : (progress.updatedAt > 0 ? progress.updatedAt : progress.startedAt)
         const showCurrent = !done && !evaluating && known && currentLabel !== ''
+        const listCurrentLabel = currentLabel !== ''
+          ? currentLabel
+          : (open !== undefined && open.step.endedAt === 0 ? open.step.label : '')
+        const listCurrent = !done && listCurrentLabel !== ''
+          ? {
+            index: currentIndex,
+            label: listCurrentLabel,
+            phase: currentLabel !== '' ? progress.phase : (open !== undefined ? open.step.phase : progress.phase),
+            since: currentSince,
+          }
+          : undefined
+        const listDone = closedEntries
+        const listTotal = listDone.length + (listCurrent !== undefined ? 1 : 0)
         const bucketKey = value => Math.round(Number(value || 0) * 2) / 2
         const buckets = new Map()
-        for (const item of closed) {
-          const key = bucketKey(item.percent)
+        for (const entry of closed) {
+          const key = bucketKey(entry.step.percent)
           const bucket = buckets.get(key)
-          if (bucket === undefined) buckets.set(key, [item])
-          else bucket.push(item)
+          if (bucket === undefined) buckets.set(key, [entry])
+          else bucket.push(entry)
         }
         const currentKey = bucketKey(currentPercent)
-        const nodeOffset = step => {
-          const key = bucketKey(step.percent)
+        const nodeOffset = entry => {
+          const key = bucketKey(entry.step.percent)
           const bucket = buckets.get(key) ?? []
-          const rank = bucket.indexOf(step)
+          const rank = bucket.indexOf(entry)
           let offset = (rank - (bucket.length - 1) / 2) * 16
           if (showCurrent && key === currentKey) offset -= 16
           return offset
         }
         const nodes = []
         const edge = position => (position < 16 ? 'start' : position > 84 ? 'end' : undefined)
-        for (let index = 0; index < closed.length; index += 1) {
-          const step = closed[index]
+        for (const entry of closed) {
+          const { step, index } = entry
           const position = railPosition(step.percent)
           const label = step.label || ''
           const took = durationText(t, step.durationMs)
@@ -587,10 +649,11 @@ window.__ModuleLoader__.load({
               className: 'dtp-node',
               style: {
                 left: `${position}%`,
-                transform: nodeOffset(step) === 0 ? undefined : `translateX(${nodeOffset(step)}px)`,
+                transform: nodeOffset(entry) === 0 ? undefined : `translateX(${nodeOffset(entry)}px)`,
               },
               'data-edge': edge(position),
               'aria-label': tt(t, 'step.node', { n: index, x: label, t: took }),
+              onMouseDown: event => event.preventDefault(),
               onMouseEnter: () => setHovered(key),
               onMouseLeave: () => setHovered(value => (value === key ? null : value)),
               onFocus: () => setHovered(key),
@@ -614,7 +677,7 @@ window.__ModuleLoader__.load({
           ))
         }
         if (showCurrent) {
-          const index = closed.length
+          const index = currentIndex
           const position = railPosition(progress.percent)
           const took = durationText(t, Math.max(0, now - currentSince))
           const key = 'current'
@@ -629,6 +692,7 @@ window.__ModuleLoader__.load({
               style: { left: `${position}%` },
               'data-edge': edge(position),
               'aria-label': tt(t, 'step.node', { n: index, x: currentLabel, t: took }),
+              onMouseDown: event => event.preventDefault(),
               onMouseEnter: () => setHovered(key),
               onMouseLeave: () => setHovered(value => (value === key ? null : value)),
               onFocus: () => setHovered(key),
@@ -702,6 +766,22 @@ window.__ModuleLoader__.load({
             h(
               'div',
               { className: 'dtp-row dtp-meta' },
+              listTotal > 0
+                ? h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'dtp-expand',
+                    'aria-expanded': listOpen,
+                    'aria-controls': 'dtp-node-list',
+                    title: listOpen ? tt(t, 'list.collapse') : tt(t, 'list.expand'),
+                    onClick: () => setListOpen(value => !value),
+                  },
+                  h('span', { className: 'dtp-expand-arrow' }, listOpen ? '▾' : '▸'),
+                  h('span', { className: 'dtp-expand-label' }, tt(t, 'list.title')),
+                  h('span', { className: 'dtp-expand-badge' }, String(listTotal)),
+                )
+                : null,
               h('span', { className: 'dtp-phase' }, phase),
               detail === '' ? null : h('span', { className: 'dtp-text', title: detail }, detail),
               evaluating
@@ -710,6 +790,44 @@ window.__ModuleLoader__.load({
                   ? h('span', { className: 'dtp-eta' }, tt(t, 'progress.eta', { n: progress.etaMin }))
                   : null,
             ),
+            listOpen && listTotal > 0
+              ? h(
+                'div',
+                { className: 'dtp-list', id: 'dtp-node-list', role: 'region', 'aria-label': tt(t, 'list.aria') },
+                listCurrent !== undefined
+                  ? h(
+                    'div',
+                    { className: 'dtp-list-row dtp-list-row-live' },
+                    h('span', { className: 'dtp-list-index' }, tt(t, 'step.index', { n: listCurrent.index })),
+                    h('span', { className: 'dtp-list-badge dtp-list-badge-live' }, tt(t, 'step.running')),
+                    h('span', { className: 'dtp-list-colon' }, tt(t, 'list.colon')),
+                    h('span', { className: 'dtp-list-label', title: listCurrent.label }, listCurrent.label),
+                    h('span', { className: 'dtp-list-meta' },
+                      `${tt(t, `phase.${listCurrent.phase}`)} · ${tt(t, 'step.elapsed', { t: durationText(t, Math.max(0, now - listCurrent.since)) })}`),
+                  )
+                  : null,
+                listCurrent !== undefined && listDone.length > 0
+                  ? h('div', { className: 'dtp-list-rule', key: 'rule' })
+                  : null,
+                listDone.map(({ step, index }) => {
+                  const finished = timeText(step.endedAt)
+                  const meta = [
+                    tt(t, `phase.${step.phase}`),
+                    tt(t, 'step.duration', { t: durationText(t, step.durationMs) }),
+                  ]
+                  if (finished !== '') meta.push(tt(t, 'step.finished', { t: finished }))
+                  return h(
+                    'div',
+                    { className: 'dtp-list-row', key: `list-${index}` },
+                    h('span', { className: 'dtp-list-index' }, tt(t, 'step.index', { n: index })),
+                    h('span', { className: 'dtp-list-badge' }, tt(t, 'done')),
+                    h('span', { className: 'dtp-list-colon' }, tt(t, 'list.colon')),
+                    h('span', { className: 'dtp-list-label', title: step.label }, step.label),
+                    h('span', { className: 'dtp-list-meta' }, meta.join(' · ')),
+                  )
+                }),
+              )
+              : null,
           ),
         )
       }
@@ -829,11 +947,15 @@ window.__ModuleLoader__.load({
       '.dtp-set-track{position:relative;width:100%;border-radius:999px;',
       'background:var(--dsw-alias-interactive-bg-hover);overflow:hidden;}',
       '.dtp-set-fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:999px;}',
-      '.dtp-set-node{position:absolute;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;',
-      'box-sizing:border-box;background:var(--dsw-alias-state-business-primary);',
-      'box-shadow:0 0 0 1.5px var(--dsw-alias-bg-layer-1,#fff);}',
-      '.dtp-set-node-current{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;',
-      'background:var(--dsw-alias-bg-layer-1,#fff);border:2px solid var(--dsw-alias-state-business-primary);}',
+      '.dtp-set-preview-bar{position:relative;display:flex;align-items:center;',
+      'padding-block:7px;margin-block:-7px;}',
+      '.dtp-set-preview-bar .dtp-set-track{flex:1 1 auto;width:100%;transform-origin:center;',
+      'transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s ease;}',
+      '.dtp-set-preview-bar:hover .dtp-set-track{transform:scaleY(1.9);',
+      'box-shadow:0 0 0 1px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 22%,transparent),',
+      '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 55%,transparent);}',
+      '.dtp-set-nodes{position:absolute;inset:0;pointer-events:none;}',
+      '@media (prefers-reduced-motion:reduce){.dtp-set-preview-bar .dtp-set-track{transition:none}}',
       '.dtp-set-caption{color:var(--dsw-alias-label-secondary);}',
       '.dtp-set-actions{display:flex;justify-content:flex-end;gap:8px;padding-top:14px;}',
       '.dtp-set-btn{height:30px;padding:0 14px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px;',
@@ -851,6 +973,7 @@ window.__ModuleLoader__.load({
     function makeSettingsPage(store, useStyle, useJudgements) {
       return function TaskProgressSettings(props) {
         const t = props.t
+        const [hoveredPreview, setHoveredPreview] = React.useState(null)
         const local = useStyle()
         const judgements = useJudgements()
         const tuned = resolveStyle(
@@ -873,10 +996,51 @@ window.__ModuleLoader__.load({
           ),
           h('div', { className: 'dtp-set-control' }, control),
         )
+        const previewDuration = seconds => tt(t, 'duration.minSec', { m: Math.floor(seconds / 60), s: seconds % 60 })
+        const previewNode = (index, left, live) => {
+          const key = `preview-${index}`
+          const active = hoveredPreview === key
+          const label = tt(t, live ? 'settings.preview.live' : 'settings.preview.done')
+          const elapsed = previewDuration(live ? 65 : 130)
+          const meta = live
+            ? `${tt(t, 'phase.execute')} · ${tt(t, 'step.elapsed', { t: elapsed })}`
+            : `${tt(t, 'phase.execute')} · ${tt(t, 'step.duration', { t: elapsed })} · ${tt(t, 'step.finished', { t: '14:32' })}`
+          return h(
+            'button',
+            {
+              key,
+              type: 'button',
+              className: live ? 'dtp-node dtp-node-current' : 'dtp-node',
+              style: { left },
+              'aria-label': tt(t, 'step.node', { n: index, x: label, t: elapsed }),
+              onMouseDown: event => event.preventDefault(),
+              onMouseEnter: () => setHoveredPreview(key),
+              onMouseLeave: () => setHoveredPreview(value => (value === key ? null : value)),
+              onFocus: () => setHoveredPreview(key),
+              onBlur: () => setHoveredPreview(value => (value === key ? null : value)),
+            },
+            h('span', { className: 'dtp-node-dot' }),
+            active
+              ? h(
+                'span',
+                { className: 'dtp-tip', role: 'tooltip' },
+                h(
+                  'span',
+                  { className: 'dtp-tip-head' },
+                  h('span', null, tt(t, 'step.index', { n: index })),
+                  h('span', { className: live ? 'dtp-tip-badge dtp-tip-badge-live' : 'dtp-tip-badge' }, tt(t, live ? 'step.running' : 'done')),
+                ),
+                h('span', { className: 'dtp-tip-main' }, label),
+                live ? h('span', { className: 'dtp-tip-sub' }, tt(t, 'progress.next', { x: tt(t, 'settings.preview.next') })) : null,
+                h('span', { className: 'dtp-tip-meta' }, meta),
+              )
+              : null,
+          )
+        }
         return h(
           React.Fragment,
           null,
-          h('style', { key: 'dtp-set-style' }, SETTINGS_CSS),
+          h('style', { key: 'dtp-set-style' }, DOCK_CSS + SETTINGS_CSS),
           h('div', { className: 'dtp-set' },
             h('h2', { className: 'dtp-set-heading' }, tt(t, 'settings.title')),
             h('p', { className: 'dtp-set-lead' }, tt(t, 'settings.lead')),
@@ -913,13 +1077,19 @@ window.__ModuleLoader__.load({
               h('span', { key: 'u', className: 'dtp-set-unit' }, 'px'),
             ]),
             h('div', { className: 'dtp-set-preview' },
-              h('div', { className: 'dtp-set-track', style: { height: `${tuned.barHeight}px` } },
-                h('div', {
-                  className: 'dtp-set-fill',
-                  style: { width: '74%', background: color },
-                }),
-                h('span', { className: 'dtp-set-node', style: { left: '33.33%', background: color } }),
-                h('span', { className: 'dtp-set-node dtp-set-node-current', style: { left: '74%', borderColor: color } }),
+              h(
+                'div',
+                { className: 'dtp-set-preview-bar', style: { '--dtp-bar-color': color } },
+                h('div', { className: 'dtp-set-track', style: { height: `${tuned.barHeight}px` } },
+                  h('div', {
+                    className: 'dtp-set-fill',
+                    style: { width: '74%', background: color },
+                  }),
+                ),
+                h('div', { className: 'dtp-set-nodes' },
+                  previewNode(0, '33.33%', false),
+                  previewNode(1, '74%', true),
+                ),
               ),
               h('div', { className: 'dtp-set-caption', style: { fontSize: `${tuned.textFontSize}px` } },
                 tt(t, 'settings.preview')),

@@ -23,12 +23,23 @@ Nodes belong to the current turn only and do not record earlier turns:
 - The current node is an **outlined node** at the bar's current percentage.
 - Hovering any node opens a detail card: which node, finished / in progress, its label and phase; finished nodes show the completion time and how long that segment took (from appearing to being replaced), the current node shows elapsed time and the *next step*.
 - Nodes are Tab-focusable and show the same detail on focus.
-- At most **10** nodes are kept per turn; older ones fade off the rail.
+- At most **100** nodes are kept per turn; older ones fade off the rail.
 - Nodes are numbered from **0**: the first finished node is "Node 0", with the current node next.
 - Coincident nodes are nudged apart so every one stays hoverable.
 - A completed node is shown only inside the current fill: if a later estimate lowers the percentage, nodes beyond the fill are hidden until progress catches up.
 
 The rail is maintained in the host's evaluator memory (it observes the effective node every 15 seconds), so nodes survive a page reload and reset on the next turn. When a turn ends, the last node is closed at `turn/end` and stays visible briefly.
+
+### Node list
+
+The leftmost control on the second row is a **Nodes** button with a count badge. Opening it expands the turn's full node list:
+
+- the current node first (`Node N [In progress]: detail · phase · elapsed`);
+- below a separator, every completed node in time order (`Node 0 [Done]: detail · phase · duration · finished at`), numbered from 0;
+- the list is capped at 180px and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
+
+The list includes completed nodes that are temporarily hidden from the bar after a lowered estimate.
+
 
 ## Where the number comes from
 
@@ -80,7 +91,7 @@ Precedence: **settings page > row config > theme default**. Row config lives in 
     textFontSize: 14
 ```
 
-Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs` (reload the plugin after changing them). You can also set the CSS variables `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size`.
+Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs` (reload the plugin after changing them). You can also set the CSS variables `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size`. The section ends with a live preview (one completed node and the current node): hovering the bar grows it, and hovering a node opens its detail card.
 
 ## Layout
 

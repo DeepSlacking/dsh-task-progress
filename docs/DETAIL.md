@@ -23,9 +23,19 @@ Nodes belong to the open turn; earlier turns are never drawn:
 - Hovering the bar grows it vertically inside 0.2 s with a soft glow; nodes share that hover hit area.
 - Nodes are keyboard-focusable and show the same card on focus.
 - Nodes are numbered from **0**; coincident nodes are nudged apart. A node sits at the last percentage it was seen at. A completed node is shown only inside the current fill: if a later estimate lowers the percentage, nodes beyond the fill are hidden until progress catches up.
-- At most the **last 10** nodes are kept; older ones drop off the rail.
+- At most the **last 100** nodes are kept; older ones drop off the rail.
 
 The Host keeps the rail in the evaluator's memory (observed every 15 seconds), so a page refresh re-reads the same nodes. A new turn resets it. When the turn ends, the last node is closed at `turn/end` and kept for a short while.
+
+### Node list
+
+The leftmost control on the second row is a **Nodes** button with a count badge. Opening it expands the turn's full node list:
+
+- the current node first (`Node N [In progress]: detail · phase · elapsed`);
+- below a separator, every completed node in time order (`Node 0 [Done]: detail · phase · duration · finished at`), numbered from 0;
+- the list is capped at 180px and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
+
+The list includes completed nodes that are temporarily hidden from the bar after a lowered estimate.
 
 ## Who evaluates, and how
 
@@ -41,7 +51,7 @@ Precedence: **model checkpoint (fresh, under 3 minutes) > evaluator estimate > t
 ## Key behaviours
 
 - The projection is the durable record: `turn/start` opens a task (and clears the previous node, next node, and percent), `report_progress` updates it, `todo/write` feeds the fallback, `turn/end` closes it. It replays after a reload and survives reconnect.
-- **Node rail:** every 15 seconds the Host hands the effective node to the pure reducer in `lib/steps.js`. A changed label closes the previous step (recording `endedAt` / `durationMs`) and opens a new one; the same label only updates its percentage and phase. The rail is capped at 10 steps, isolated per turn, and published on the read-only route.
+- **Node rail:** every 15 seconds the Host hands the effective node to the pure reducer in `lib/steps.js`. A changed label closes the previous step (recording `endedAt` / `durationMs`) and opens a new one; the same label only updates its percentage and phase. The rail is capped at 100 steps, isolated per turn, and published on the read-only route.
 - **Todo fallback:** with no report but a todo list, the bar uses `completed / total` (capped at 95% while running) and marks the value with `≈`. That costs no tokens.
 - **Long tasks:** the evaluator refreshes at most every two minutes (configurable 30 s – 10 min), so a long stretch without a report still moves and its node still turns into a node; a fresh model report makes the evaluator skip.
 - **Long single steps:** a model cannot report while it waits on its own tool call; after 12 seconds with no result the strip shows the evaluating state and a clock.
@@ -55,7 +65,7 @@ Precedence: **model checkpoint (fresh, under 3 minutes) > evaluator estimate > t
 - **Bar color** — picker or any CSS color (`#hex`, `rgb()`, `var(--x)`); clear it to follow the theme accent. The same color paints the sidebar ring and the nodes.
 - **Explanation size** — the line under the bar, 9–24 px, default 12.
 
-The section ends with a live preview (one completed node plus the current node) and **Reset to defaults**. Values live in this browser's localStorage, so they follow the machine rather than the repository and need no restart.
+The section ends with a live preview (one completed node plus the current node) and **Reset to defaults**. Hovering the preview bar grows it, and hovering a sample node opens its detail card. Values live in this browser's localStorage, so they follow the machine rather than the repository and need no restart.
 
 Three layers, highest first: **settings page > row config > theme default**. The row config still works for defaults shipped with a setup:
 
