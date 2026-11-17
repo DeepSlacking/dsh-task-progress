@@ -179,7 +179,9 @@ async function loadDock(store) {
     return fake.React
   }).apply(ctx)
   const Dock = registered['conversation.input.dock']
+  const Settings = registered['settings.section']
   assert.ok(Dock, 'dock registered')
+  assert.ok(Settings, 'settings registered')
   fake.reset()
   fake.setExternal(store)
   const { progress } = fixture()
@@ -192,8 +194,39 @@ async function loadDock(store) {
         useProjection: () => progress,
       })
     },
+    renderSettings: () => {
+      fake.beginRender()
+      return Settings({ t: undefined })
+    },
   }
 }
+
+test('the settings preview grows on hover and opens a sample node card', async () => {
+  const { store } = fixture()
+  const { renderSettings } = await loadDock(store)
+  let tree = renderSettings()
+  const bar = byClass(tree, 'dtp-set-preview-bar')[0]
+  assert.ok(bar, 'preview bar rendered')
+  assert.ok(textOf(tree).includes('.dtp-set-preview-bar:hover .dtp-set-track{transform:scaleY(1.9)'), 'preview hover scale css')
+  const nodes = byClass(tree, 'dtp-node')
+  assert.equal(nodes.length, 2)
+  nodes[0].props.onMouseEnter()
+  tree = renderSettings()
+  let tip = byClass(tree, 'dtp-tip')[0]
+  assert.ok(tip, 'finished sample card')
+  assert.match(textOf(tip), /节点 0/)
+  assert.match(textOf(tip), /已完成/)
+  assert.match(textOf(tip), /预览：节点已完成/)
+  assert.match(textOf(tip), /耗时 2 分 10 秒/)
+  assert.match(textOf(tip), /14:32 完成/)
+  byClass(tree, 'dtp-node')[1].props.onMouseEnter()
+  tree = renderSettings()
+  tip = byClass(tree, 'dtp-tip')[0]
+  assert.ok(tip, 'live sample card')
+  assert.match(textOf(tip), /节点 1/)
+  assert.match(textOf(tip), /进行中/)
+  assert.match(textOf(tip), /下一步：检查节点详情卡/)
+})
 
 test('the bar shows the open task percent with one node per closed milestone', async () => {
   const { progress, store } = fixture()
