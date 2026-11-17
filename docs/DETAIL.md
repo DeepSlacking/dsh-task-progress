@@ -33,7 +33,7 @@ The leftmost control on the second row is a **Nodes** button with a count badge.
 
 - the current node first (`Node N [In progress]: detail · phase · elapsed`);
 - below a separator, every completed node in time order (`Node 0 [Done]: detail · phase · duration · finished at`), numbered from 0;
-- the list is capped at 180px and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
+- the list has a **fixed 180px height** and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
 
 The list includes completed nodes that are temporarily hidden from the bar after a lowered estimate.
 
@@ -64,6 +64,7 @@ Precedence: **model checkpoint (fresh, under 3 minutes) > evaluator estimate > t
 - **Bar height** — 2–24 px, default 6.
 - **Bar color** — picker or any CSS color (`#hex`, `rgb()`, `var(--x)`); clear it to follow the theme accent. The same color paints the sidebar ring and the nodes.
 - **Explanation size** — the line under the bar, 9–24 px, default 12.
+- **Node list font size** — the expanded list rows, 9–24 px, default 11.
 
 The section ends with a live preview (one completed node plus the current node) and **Reset to defaults**. Hovering the preview bar grows it, and hovering a sample node opens its detail card. Values live in this browser's localStorage, so they follow the machine rather than the repository and need no restart.
 
@@ -78,7 +79,7 @@ Three layers, highest first: **settings page > row config > theme default**. The
     textFontSize: 14
 ```
 
-Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs` (reload the plugin from **Plugins** after changing those). The same three values can be set as CSS variables (`--dtp-bar-height`, `--dtp-bar-color`, `--dtp-font-size`); the plugin only overrides a variable when the settings page or the row config sets it.
+Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs` (reload the plugin from **Plugins** after changing those); row config also accepts `listFontSize`. The appearance values can be set as CSS variables (`--dtp-bar-height`, `--dtp-bar-color`, `--dtp-font-size`, `--dtp-list-font-size`); the plugin only overrides a variable when the settings page or the row config sets it.
 
 ## Cost
 

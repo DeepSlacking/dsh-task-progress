@@ -36,7 +36,7 @@ DeepSeek Harness（DSH）插件：在会话里和侧栏上显示「当前任务�
 
 - 第一行是当前正在进行的节点（`节点 N [进行中]：详情 · 阶段 · 已用时间`）；
 - 分隔线以下按时间正序列出所有已完成节点（`节点 0 [已完成]：详情 · 阶段 · 耗时 · 完成时刻`），编号从 0 开始；
-- 列表最高 180px，超出时在列表内部滚动，再次点击按钮收起；角标是本轮节点总数。
+- 列表**固定 180px 高**，超出时在列表内部滚动，再次点击按钮收起；角标是本轮节点总数。
 
 列表包含所有已完成节点（包括因为评估下调而暂时不画在进度条上的节点）。
 
@@ -81,6 +81,7 @@ npm install "file:D:/DSH-workspace/dsh-task-progress"
 - 进度条高度：2–24 px，默认 6
 - 进度条颜色：任意 CSS 颜色（`#hex`、`rgb()`、`var(--x)`），清空跟随主题强调色；同时用于侧栏圆环和节点
 - 说明文字字号：9–24 px，默认 12
+- 节点列表字号：9–24 px，默认 11
 
 优先级：**设置页 > 行配置 > 主题默认**。行配置写在 profile 的 `cordis.patch.yml`：
 
@@ -93,7 +94,7 @@ npm install "file:D:/DSH-workspace/dsh-task-progress"
     textFontSize: 14
 ```
 
-其余字段：`enableTool`、`minStep`、`todoBaseline`、`judge`、`judgeIntervalMs`（改完需在「插件」里重载）。也可直接设 CSS 变量 `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size`。设置页底部有实时预览（一个完成节点和一个当前节点）：预览条悬停会放大，移入节点会弹出详情卡。
+其余字段：`enableTool`、`minStep`、`todoBaseline`、`judge`、`judgeIntervalMs`（改完需在「插件」里重载）；外观也可在行配置里写 `barHeight` / `barColor` / `textFontSize` / `listFontSize`。也可直接设 CSS 变量 `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size` / `--dtp-list-font-size`。设置页底部有实时预览（一个完成节点和一个当前节点）：预览条悬停会放大，移入节点会弹出详情卡。
 
 ## 目录
 

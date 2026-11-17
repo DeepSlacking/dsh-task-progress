@@ -77,6 +77,8 @@ window.__ModuleLoader__.load({
         'settings.color.auto': '跟随主题',
         'settings.font': '说明文字字号',
         'settings.font.desc': '进度条下方说明行的字号，9–24 像素，默认 12。',
+        'settings.listFont': '节点列表字号',
+        'settings.listFont.desc': '展开列表的行字号，9–24 像素，默认 11。',
         'settings.preview': '预览：执行中 · 接入事件 · 下一步：打磨',
         'settings.preview.done': '预览：节点已完成',
         'settings.preview.live': '预览：正在调整外观',
@@ -123,6 +125,8 @@ window.__ModuleLoader__.load({
         'settings.color.auto': 'Theme accent',
         'settings.font': 'Explanation size',
         'settings.font.desc': 'Font size of the line under the bar, 9–24 px, default 12.',
+        'settings.listFont': 'Node list font size',
+        'settings.listFont.desc': 'Font size of the expanded list rows, 9–24 px, default 11.',
         'settings.preview': 'Preview: executing · wiring events · next: polish',
         'settings.preview.done': 'Preview: node finished',
         'settings.preview.live': 'Preview: tuning the appearance',
@@ -266,11 +270,13 @@ window.__ModuleLoader__.load({
       'color:var(--dsw-alias-state-business-primary);font-size:10px;line-height:16px;}',
       '.dtp-list{margin-top:2px;border:0.5px solid var(--dsw-alias-border-l1);border-radius:8px;',
       'background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));padding:3px 0;',
-      'max-height:180px;overflow:auto;font-size:11px;line-height:1.5;}',
+      'box-sizing:border-box;height:180px;overflow:auto;',
+      'font-size:var(--dtp-list-font-size,11px);line-height:1.5;}',
       '.dtp-list-row{display:flex;align-items:baseline;gap:5px;padding:2px 8px;min-width:0;}',
       '.dtp-list-row-live{background:color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 6%,transparent);}',
       '.dtp-list-index{flex:none;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums;}',
-      '.dtp-list-badge{flex:none;padding:0 5px;border-radius:999px;font-size:10px;line-height:16px;',
+      '.dtp-list-badge{flex:none;padding:0 5px;border-radius:999px;',
+      'font-size:calc(var(--dtp-list-font-size,11px) - 1px);line-height:1.4;',
       'background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#16a34a) 14%,transparent);',
       'color:var(--dsw-alias-state-success-primary,#16a34a);}',
       '.dtp-list-badge-live{background:color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 14%,transparent);',
@@ -278,7 +284,8 @@ window.__ModuleLoader__.load({
       '.dtp-list-colon{flex:none;color:var(--dsw-alias-label-tertiary);}',
       '.dtp-list-label{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
       'color:var(--dsw-alias-label-secondary);}',
-      '.dtp-list-meta{flex:none;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;white-space:nowrap;}',
+      '.dtp-list-meta{flex:none;color:var(--dsw-alias-label-tertiary);',
+      'font-size:calc(var(--dtp-list-font-size,11px) - 1px);font-variant-numeric:tabular-nums;white-space:nowrap;}',
       '.dtp-list-rule{height:1px;margin:3px 8px;background:var(--dsw-alias-border-l1);}',
       '@keyframes dtp-pulse{0%,100%{opacity:1}50%{opacity:.5}}',
       '@keyframes dtp-slide{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}',
@@ -395,7 +402,7 @@ window.__ModuleLoader__.load({
     }
 
     /** Defaults when neither the settings page, the Host row config, nor CSS set a knob. */
-    const STYLE_DEFAULTS = Object.freeze({ barHeight: 6, barColor: '', textFontSize: 12 })
+    const STYLE_DEFAULTS = Object.freeze({ barHeight: 6, barColor: '', textFontSize: 12, listFontSize: 11 })
     /** localStorage key of the appearance overrides edited in Settings. */
     const STYLE_KEY = 'dsh-task-progress.style.v1'
 
@@ -410,6 +417,7 @@ window.__ModuleLoader__.load({
         if (Number.isFinite(parsed.barHeight) && parsed.barHeight > 0) out.barHeight = Math.min(24, Math.round(parsed.barHeight))
         if (typeof parsed.barColor === 'string' && parsed.barColor !== '') out.barColor = parsed.barColor.slice(0, 40)
         if (Number.isFinite(parsed.textFontSize) && parsed.textFontSize > 0) out.textFontSize = Math.min(24, Math.round(parsed.textFontSize))
+        if (Number.isFinite(parsed.listFontSize) && parsed.listFontSize > 0) out.listFontSize = Math.min(24, Math.max(9, Math.round(parsed.listFontSize)))
         return out
       } catch {
         return {}
@@ -465,6 +473,7 @@ window.__ModuleLoader__.load({
       const l = local !== null && local !== undefined ? local : {}
       const height = l.barHeight > 0 ? l.barHeight : h.barHeight > 0 ? h.barHeight : 0
       const font = l.textFontSize > 0 ? l.textFontSize : h.textFontSize > 0 ? h.textFontSize : 0
+      const listFont = l.listFontSize > 0 ? l.listFontSize : h.listFontSize > 0 ? h.listFontSize : 0
       const color = typeof l.barColor === 'string' && l.barColor !== ''
         ? l.barColor
         : typeof h.barColor === 'string' ? h.barColor : ''
@@ -472,9 +481,11 @@ window.__ModuleLoader__.load({
         barHeight: height > 0 ? height : STYLE_DEFAULTS.barHeight,
         barColor: color,
         textFontSize: font > 0 ? font : STYLE_DEFAULTS.textFontSize,
+        listFontSize: listFont > 0 ? listFont : STYLE_DEFAULTS.listFontSize,
         explicitHeight: height > 0,
         explicitColor: color !== '',
         explicitFont: font > 0,
+        explicitListFont: listFont > 0,
       }
     }
 
@@ -567,6 +578,7 @@ window.__ModuleLoader__.load({
         if (tuned.explicitHeight) styleVars['--dtp-bar-height'] = `${tuned.barHeight}px`
         if (tuned.explicitColor) styleVars['--dtp-bar-color'] = tuned.barColor
         if (tuned.explicitFont) styleVars['--dtp-font-size'] = `${tuned.textFontSize}px`
+        if (tuned.explicitListFont) styleVars['--dtp-list-font-size'] = `${tuned.listFontSize}px`
         const fill = Math.max(2, evaluating ? 0 : Math.min(100, percent))
         // The rail is per turn: a milestone the evaluator superseded is a
         // completed node; the milestone on screen now is the outlined head.
@@ -1073,6 +1085,15 @@ window.__ModuleLoader__.load({
                 min: 9, max: 24, step: 1, defaultValue: tuned.textFontSize,
                 'aria-label': tt(t, 'settings.font'),
                 onBlur: commitNumber('textFontSize', 9, 24), onKeyDown: blurOnEnter,
+              }),
+              h('span', { key: 'u', className: 'dtp-set-unit' }, 'px'),
+            ]),
+            row(tt(t, 'settings.listFont'), tt(t, 'settings.listFont.desc'), [
+              h('input', {
+                key: `l${tuned.listFontSize}`, className: 'dtp-set-num', type: 'number',
+                min: 9, max: 24, step: 1, defaultValue: tuned.listFontSize,
+                'aria-label': tt(t, 'settings.listFont'),
+                onBlur: commitNumber('listFontSize', 9, 24), onKeyDown: blurOnEnter,
               }),
               h('span', { key: 'u', className: 'dtp-set-unit' }, 'px'),
             ]),

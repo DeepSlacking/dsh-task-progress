@@ -36,7 +36,7 @@ The leftmost control on the second row is a **Nodes** button with a count badge.
 
 - the current node first (`Node N [In progress]: detail · phase · elapsed`);
 - below a separator, every completed node in time order (`Node 0 [Done]: detail · phase · duration · finished at`), numbered from 0;
-- the list is capped at 180px and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
+- the list has a **fixed 180px height** and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
 
 The list includes completed nodes that are temporarily hidden from the bar after a lowered estimate.
 
@@ -79,6 +79,7 @@ Restart the DSH desktop app afterwards to load the plugin.
 - Bar height: 2–24 px, default 6
 - Bar color: any CSS color (`#hex`, `rgb()`, `var(--x)`); empty follows the theme accent. Also used by the sidebar ring and the nodes
 - Caption font size: 9–24 px, default 12
+- Node list font size: 9–24 px, default 11
 
 Precedence: **settings page > row config > theme default**. Row config lives in the profile's `cordis.patch.yml`:
 
@@ -91,7 +92,7 @@ Precedence: **settings page > row config > theme default**. Row config lives in 
     textFontSize: 14
 ```
 
-Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs` (reload the plugin after changing them). You can also set the CSS variables `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size`. The section ends with a live preview (one completed node and the current node): hovering the bar grows it, and hovering a node opens its detail card.
+Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs` (reload the plugin after changing them); appearance can also be set in row config as `barHeight` / `barColor` / `textFontSize` / `listFontSize`. You can also set the CSS variables `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size` / `--dtp-list-font-size`. The section ends with a live preview (one completed node and the current node): hovering the bar grows it, and hovering a node opens its detail card.
 
 ## Layout
 

@@ -171,6 +171,8 @@ export async function apply(ctx, config) {
       barColor: safeColor(config?.barColor),
       /** Font size of the explanation row in CSS pixels (0 = theme default 12px). */
       textFontSize: clampInt(config?.textFontSize, 0, 24, 0),
+      /** Font size of the expanded node list in CSS pixels (0 = default 11px). */
+      listFontSize: clampInt(config?.listFontSize, 0, 24, 0),
     },
   }
 
