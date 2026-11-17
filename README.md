@@ -6,6 +6,18 @@ DeepSeek Harness（DSH）插件：在会话里和侧栏上显示「当前任务�
 
 ![任务进度](https://img.shields.io/badge/DSH-0.2.2--rc.1-4176e6) ![license](https://img.shields.io/badge/license-MIT-green)
 
+## 场景示例
+
+两张虚构任务的界面示意（不含真实会话内容）。
+
+**进行中的任务**：进度条上有多个已完成节点和一个进行中的节点；悬停节点显示详情卡，第二行展开节点列表。
+
+![进行中的节点轨道、节点卡片与节点列表](docs/images/scene-progress.png)
+
+**完成后的任务**：模型回复完成后，回复底部的灰色节点图标（排在上下文之后、分支之前）打开右侧边栏；侧栏以卡片形式按时间正序展示全部节点。
+
+![完成后的节点图标与右侧节点卡片](docs/images/scene-completed.png)
+
 ## 功能
 
 | 位置 | 显示 |

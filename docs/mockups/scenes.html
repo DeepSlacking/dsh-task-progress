@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dsh-task-progress · scene mockups</title>
+<script>
+  document.documentElement.dataset.scene = new URLSearchParams(location.search).get('scene') || 'rail'
+</script>
+<style>
+  :root {
+    --ink: #1f2328;
+    --muted: #5f6368;
+    --faint: #8b8f96;
+    --line: #e6e7ea;
+    --line2: #dfe1e5;
+    --accent: #4d6bfe;
+    --accent-soft: #eef1ff;
+    --green: #16a34a;
+    --green-soft: #e9f7ef;
+    --sidebar: #f7f7f8;
+    --surface: #fff;
+    --dsw-alias-bg-base: #fff;
+    --dsw-alias-bg-layer-1: #fff;
+    --dsw-alias-label-primary: #1f2328;
+    --dsw-alias-label-secondary: #5f6368;
+    --dsw-alias-label-tertiary: #8b8f96;
+    --dsw-alias-border-l1: #e6e7ea;
+    --dsw-alias-border-l2: #dfe1e5;
+    --dsw-alias-state-business-primary: #4d6bfe;
+    --dsw-alias-state-success-primary: #16a34a;
+    --dsw-alias-interactive-bg-hover: rgba(20, 25, 40, .05);
+    --dsw-radius-sm: 6px;
+    --dsh-chat-content-width: 760px;
+    font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #e9eaee; color: var(--ink); }
+  button { font: inherit; }
+  svg { display: block; }
+  .app { position: absolute; inset: 0; display: flex; background: var(--surface); }
+  html[data-scene="rail"] #scene-completed { display: none; }
+  html[data-scene="completed"] #scene-rail { display: none; }
+
+  /* ── left sidebar ─────────────────────────────────────────────────── */
+  .sidebar { width: 260px; flex: none; display: flex; flex-direction: column; padding: 14px 12px 10px; background: var(--sidebar); border-right: 1px solid var(--line); }
+  .brand { display: flex; align-items: center; gap: 8px; padding: 2px 6px 12px; }
+  .brand-mark { width: 22px; height: 22px; border-radius: 7px; background: #15171a; color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  .brand-name { font-size: 13px; font-weight: 600; letter-spacing: .1px; }
+  .brand-name b { font-weight: 750; }
+  .brand-toggle { margin-left: auto; color: var(--faint); }
+  .new-session { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 12px; border: 1px solid var(--line2); border-radius: 10px; background: #fff; color: var(--ink); font-size: 13px; cursor: default; }
+  .new-session .plus { font-size: 17px; color: var(--muted); line-height: 1; }
+  .new-session kbd { margin-left: auto; font: inherit; font-size: 10px; color: var(--faint); background: #f2f3f5; border-radius: 5px; padding: 2px 5px; }
+  .side-scroll { flex: 1; min-height: 0; overflow: hidden; padding-top: 14px; }
+  .side-caption { display: flex; align-items: center; padding: 0 6px 6px; color: var(--faint); font-size: 11px; }
+  .side-caption .tools { margin-left: auto; display: flex; gap: 10px; color: #a3a7ae; }
+  .nav-row { display: flex; align-items: center; gap: 9px; height: 32px; padding: 0 9px; border-radius: 8px; color: var(--muted); font-size: 12.5px; }
+  .nav-row svg { width: 14px; height: 14px; opacity: .8; }
+  .workspace-head { display: flex; align-items: center; gap: 8px; padding: 18px 8px 7px; color: var(--muted); font-size: 12px; font-weight: 600; }
+  .workspace-head .tools { margin-left: auto; display: flex; gap: 10px; color: #a3a7ae; }
+  .workspace-name { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; color: var(--muted); font-size: 12px; }
+  .workspace-name .dot { width: 7px; height: 7px; border-radius: 50%; background: #c8cbd1; }
+  .session { display: flex; align-items: center; gap: 7px; height: 31px; padding: 0 8px; border-radius: 7px; color: var(--muted); font-size: 12px; }
+  .session.active { background: #ececef; color: var(--ink); }
+  .session-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-time { flex: none; color: var(--faint); font-size: 11px; }
+  .ring { width: 14px; height: 14px; flex: none; border-radius: 50%; background: conic-gradient(var(--accent) 82%, #dfe2e8 0); position: relative; }
+  .ring::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--sidebar); }
+  .session.active .ring::after { background: #ececef; }
+  .sidebar-foot { flex: none; padding: 8px 4px 2px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 8px; }
+
+  /* ── main column ─────────────────────────────────────────────────── */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; background: #fff; }
+  .topbar { height: 54px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 22px; border-bottom: 1px solid #efeff1; }
+  .topbar .title { font-size: 14px; font-weight: 600; white-space: nowrap; }
+  .topbar .chip { font-size: 10.5px; color: var(--faint); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+  .tabs { display: flex; align-items: center; gap: 18px; height: 100%; margin-left: 2px; color: var(--faint); font-size: 12.5px; }
+  .tab { display: flex; align-items: center; height: 100%; position: relative; }
+  .tab.active { color: var(--ink); font-weight: 600; }
+  .tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--accent); }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; color: #8b8f96; }
+  .icon-btn { width: 24px; height: 24px; padding: 3px; border: 0; border-radius: 6px; background: transparent; color: inherit; display: inline-flex; align-items: center; justify-content: center; }
+  .icon-btn svg { width: 16px; height: 16px; }
+
+  .chat { flex: 1; min-height: 0; overflow: hidden; display: flex; justify-content: center; padding: 26px 26px 0; }
+  .chat-inner { width: min(760px, 100%); display: flex; flex-direction: column; gap: 20px; }
+  .user-msg { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .bubble { max-width: 640px; padding: 12px 16px; border-radius: 14px; background: #eef1f5; color: #25292f; font-size: 14px; line-height: 1.65; }
+  .msg-time { font-size: 10.5px; color: var(--faint); }
+  .assistant-msg { display: flex; flex-direction: column; gap: 10px; padding-right: 20px; }
+  .assistant-text { color: #25292f; font-size: 14px; line-height: 1.75; }
+  .tool-row { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); font-size: 11.5px; background: #fafafa; }
+  .tool-row .tool-state { color: var(--green); }
+  .turn-head { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11.5px; margin-bottom: 2px; }
+  .turn-head .chev { color: var(--faint); }
+  .checklist { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 0; padding: 0; list-style: none; color: #3d424a; font-size: 13px; }
+  .checklist li { display: flex; align-items: center; gap: 8px; }
+  .check { width: 16px; height: 16px; flex: none; border-radius: 50%; background: var(--green-soft); color: var(--green); display: grid; place-items: center; font-size: 10px; }
+  .reply-link { color: var(--accent); text-decoration: none; }
+  .summary { max-width: 560px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fafbfc; color: var(--muted); font-size: 12px; }
+  .summary-title { margin-bottom: 6px; color: var(--ink); font-size: 11.5px; font-weight: 600; }
+  .summary-grid { display: grid; grid-template-columns: 52px 1fr; gap: 4px 10px; }
+  .summary-grid b { color: #3d424a; font-weight: 500; }
+  .summary-grid .ok { color: var(--green); }
+  .turn-actions { display: flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--faint); }
+  .turn-actions .icon-btn { width: 28px; height: 28px; }
+  .turn-actions .icon-btn svg { width: 16px; height: 16px; }
+  .turn-actions .usage { margin-left: 8px; color: var(--faint); font-size: 11.5px; }
+  .turn-actions .time { color: var(--faint); font-size: 11.5px; }
+
+  /* ── composer + progress dock ────────────────────────────────────── */
+  .composer-wrap { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 8px 24px 18px; background: linear-gradient(to bottom, rgba(255,255,255,0), #fff 26%); position: relative; }
+  .composer { width: min(760px, 100%); padding: 14px 16px 10px; background: #fff; border: 1px solid var(--line2); border-radius: 16px; box-shadow: 0 7px 24px rgba(25, 30, 40, .07); }
+  .composer-placeholder { height: 22px; color: #9a9ea6; font-size: 13px; }
+  .composer-tools { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--muted); font-size: 11.5px; }
+  .composer-tools .plus { width: 22px; height: 22px; display: grid; place-items: center; color: #6f747c; font-size: 18px; }
+  .composer-tools .pill { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 7px; border: 1px solid var(--line); border-radius: 7px; }
+  .composer-tools .spacer { flex: 1; }
+  .composer-tools .model { color: var(--faint); }
+  .composer-tools .send { width: 30px; height: 30px; margin-left: 4px; border: 0; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-size: 16px; }
+
+  /* ── plugin: rail ────────────────────────────────────────────────── */
+  .dtp-dock { width: min(760px, 100%); display: flex; flex-direction: column; gap: 3px; position: relative; font-size: 12px; line-height: 1.45; color: var(--muted); --dtp-bar-color: #4d6bfe; --dtp-bar-height: 6px; }
+  .dtp-row { display: flex; align-items: center; gap: 10px; min-height: 24px; }
+  .dtp-bar { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; padding-block: 7px; margin-block: -7px; }
+  .dtp-track { position: relative; width: 100%; height: var(--dtp-bar-height); border-radius: 999px; background: rgba(20, 25, 40, .07); overflow: hidden; transform-origin: center; transition: transform .18s ease, box-shadow .18s ease; }
+  .is-hover .dtp-track { transform: scaleY(1.9); box-shadow: 0 0 0 1px rgba(77, 107, 254, .18), 0 3px 14px -2px rgba(77, 107, 254, .5); }
+  .dtp-fill { position: absolute; inset-block: 0; left: 0; border-radius: 999px; background: var(--dtp-bar-color); }
+  .dtp-nodes { position: absolute; inset: 0; pointer-events: none; }
+  .dtp-node { position: absolute; top: 50%; width: 16px; height: 16px; margin: 0; padding: 0; transform: translate(-50%, -50%); border: 0; background: transparent; pointer-events: auto; }
+  .dtp-node-dot { display: block; width: 8px; height: 8px; margin: auto; border-radius: 50%; background: var(--dtp-bar-color); box-shadow: 0 0 0 2px #fff; }
+  .dtp-node-current .dtp-node-dot { width: 10px; height: 10px; background: #fff; border: 2px solid var(--dtp-bar-color); box-shadow: 0 0 0 2px #fff; }
+  .dtp-node.is-hover .dtp-node-dot { transform: scale(1.15); }
+  .dtp-tip { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); z-index: 8; display: flex; flex-direction: column; gap: 3px; width: 292px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; background: #fff; box-shadow: 0 10px 28px rgba(20, 25, 40, .16); color: var(--ink); text-align: left; pointer-events: none; }
+  .dtp-tip-head { display: flex; align-items: center; gap: 7px; font-size: 10.5px; color: var(--faint); }
+  .dtp-tip-badge { padding: 0 5px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 10px; line-height: 16px; }
+  .dtp-tip-main { font-size: 12px; line-height: 1.45; color: var(--ink); }
+  .dtp-tip-meta { font-size: 10.5px; color: var(--faint); }
+  .dtp-pct { flex: none; color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .dtp-meta { gap: 8px; color: var(--faint); font-size: 11px; }
+  .dtp-expand { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--muted); font-size: 11px; line-height: 18px; }
+  .dtp-expand-arrow { font-size: 10px; color: var(--faint); }
+  .dtp-expand-badge { min-width: 16px; padding: 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size: 10px; line-height: 16px; text-align: center; }
+  .dtp-phase { flex: none; display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: 6px; background: var(--accent-soft); color: var(--accent); font-size: 11px; }
+  .dtp-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .dtp-eta { flex: none; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .dtp-list { margin-top: 2px; padding: 3px 0; height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; font-size: 11px; line-height: 1.5; }
+  .dtp-list-row { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 2px 8px; }
+  .dtp-list-row-live { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+  .dtp-list-index { flex: none; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .dtp-list-badge { flex: none; padding: 0 5px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 10px; line-height: 16px; }
+  .dtp-list-badge-live { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); }
+  .dtp-list-colon { flex: none; color: var(--faint); }
+  .dtp-list-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+  .dtp-list-meta { flex: none; color: var(--faint); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 10px; }
+  .dtp-list-rule { height: 1px; margin: 3px 8px; background: var(--line); }
+
+  /* ── plugin: footer glyph ────────────────────────────────────────── */
+  .dtp-footer-action { flex: none; width: 28px; height: 28px; padding: 6px; border: 0; border-radius: var(--dsw-radius-sm); background: transparent; color: var(--faint); display: inline-flex; align-items: center; justify-content: center; }
+  .dtp-footer-action svg { width: 17px; height: 17px; }
+
+  /* ── right sidebar + node cards ──────────────────────────────────── */
+  .rightbar { width: 420px; flex: none; min-height: 0; display: flex; flex-direction: column; background: #fff; border-left: 1px solid var(--line); }
+  .rightbar-head { height: 50px; flex: none; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid #efeff1; }
+  .rightbar-tabs { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+  .rightbar-tab { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 7px; background: #f7f8fa; color: var(--ink); font-size: 12px; }
+  .rightbar-tab .close { color: var(--faint); font-size: 13px; line-height: 1; }
+  .rightbar-plus { width: 26px; height: 26px; border: 0; background: transparent; color: var(--faint); font-size: 18px; }
+  .rightbar-tools { display: flex; align-items: center; gap: 10px; color: var(--faint); }
+  .rightbar-body { flex: 1; min-height: 0; overflow: auto; }
+  .dtp-panel { display: flex; flex-direction: column; gap: 10px; padding: 14px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+  .dtp-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .dtp-panel-title { color: var(--ink); font-weight: 600; }
+  .dtp-panel-count { color: var(--faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .dtp-cards { display: flex; flex-direction: column; gap: 8px; }
+  .dtp-card { display: flex; gap: 9px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .dtp-card-rail { width: 16px; flex: none; display: flex; flex-direction: column; align-items: center; }
+  .dtp-card-dot { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 2px var(--green-soft); }
+  .dtp-card-line { width: 1px; flex: 1; min-height: 10px; margin-top: 3px; background: var(--line); }
+  .dtp-card:last-child .dtp-card-line { display: none; }
+  .dtp-card-body { min-width: 0; flex: 1; }
+  .dtp-card-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .dtp-card-index { color: var(--faint); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+  .dtp-card-badge { padding: 0 6px; border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 10px; line-height: 16px; }
+  .dtp-card-duration { margin-left: auto; color: var(--faint); font-size: 10px; font-variant-numeric: tabular-nums; }
+  .dtp-card-label { margin-top: 3px; color: var(--ink); font-size: 12px; line-height: 1.45; word-break: break-word; }
+  .dtp-card-meta { margin-top: 2px; color: var(--faint); font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+<!-- ───────────────────────────── scene 1: rail / tooltip / list ───────────────────────────── -->
+<div class="app" id="scene-rail">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">d</span>
+      <span class="brand-name">deepseek <b>HARNESS</b></span>
+      <span class="brand-toggle">◧</span>
+    </div>
+    <button class="new-session"><span class="plus">+</span> 新会话 <kbd>Ctrl+Alt+N</kbd></button>
+    <div class="side-scroll">
+      <div class="side-caption">5 项 <span class="tools">⌕ ⚙</span></div>
+      <div class="nav-row"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg> 插件</div>
+      <div class="nav-row"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg> 上下文管理</div>
+      <div class="nav-row"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2.5 4.5h4l1.2 1.4h5.8v6.6h-11z"/></svg> 作品</div>
+      <div class="nav-row"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2.5" y="3" width="11" height="10" rx="1.4"/><path d="M2.5 6.5h11M6.5 6.5v6.5"/></svg> 任务看板</div>
+      <div class="workspace-head"><span class="dot" style="background:#aeb3bb"></span> 青柠工作室 <span class="tools">⌕ ⚙ ＋</span></div>
+      <div class="workspace-name">团队空间</div>
+      <div class="session active"><span class="session-title">发布团队周报站点</span><span class="session-time">进行中</span><span class="ring"></span><span class="session-time">82%</span></div>
+      <div class="session"><span class="session-title">整理产品反馈</span><span class="session-time">1 小时</span></div>
+      <div class="session"><span class="session-title">升级构建脚本</span><span class="session-time">昨天</span></div>
+      <div class="session"><span class="session-title">查看部署日志</span><span class="session-time">昨天</span></div>
+    </div>
+    <div class="sidebar-foot">⋯ 更多</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <span class="title">发布团队周报站点</span>
+      <span class="chip">网页</span>
+      <nav class="tabs">
+        <span class="tab active">对话</span>
+        <span class="tab">上下文</span>
+        <span class="tab">编队</span>
+        <span class="tab">⋯</span>
+      </nav>
+      <div class="topbar-right">
+        <span class="icon-btn">⋯</span>
+        <span class="icon-btn">◫</span>
+      </div>
+    </header>
+
+    <div class="chat">
+      <div class="chat-inner">
+        <div class="user-msg">
+          <div class="bubble">把团队周报站点搭出来并发布到 GitHub Pages，先完成页面和内容，再检查移动端。</div>
+          <div class="msg-time">16:02</div>
+        </div>
+        <div class="assistant-msg">
+          <div class="assistant-text">页面骨架和三篇周报已经接入，本地预览正常；现在检查小屏导航和排版。</div>
+          <div class="tool-row"><span>▸</span><span>运行命令</span><span style="color:#8b8f96">npm run dev</span><span class="tool-state">已完成</span></div>
+          <div class="tool-row"><span>▸</span><span>运行命令</span><span style="color:#8b8f96">npm run build</span><span class="tool-state">已完成</span></div>
+          <div class="assistant-text">先检查 1280px 桌面端，再切到 390px 小屏验证导航。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="dtp-dock">
+        <div class="dtp-row">
+          <div class="dtp-bar is-hover">
+            <div class="dtp-track"><div class="dtp-fill" style="width:82%"></div></div>
+            <div class="dtp-nodes">
+              <button class="dtp-node" style="left:12%"><span class="dtp-node-dot"></span></button>
+              <button class="dtp-node" style="left:28%"><span class="dtp-node-dot"></span></button>
+              <button class="dtp-node is-hover" style="left:44%">
+                <span class="dtp-node-dot"></span>
+                <span class="dtp-tip">
+                  <span class="dtp-tip-head"><span>节点 2</span><span class="dtp-tip-badge">已完成</span></span>
+                  <span class="dtp-tip-main">接入三篇周报内容</span>
+                  <span class="dtp-tip-meta">内容 · 耗时 4 分钟 · 16:28 完成</span>
+                </span>
+              </button>
+              <button class="dtp-node" style="left:60%"><span class="dtp-node-dot"></span></button>
+              <button class="dtp-node" style="left:74%"><span class="dtp-node-dot"></span></button>
+              <button class="dtp-node dtp-node-current" style="left:82%"><span class="dtp-node-dot"></span></button>
+            </div>
+          </div>
+          <span class="dtp-pct">82%</span>
+        </div>
+        <div class="dtp-row dtp-meta">
+          <button class="dtp-expand"><span class="dtp-expand-arrow"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><path d="M1.5 2.5 4 5l2.5-2.5"/></svg></span><span>节点</span><span class="dtp-expand-badge">6</span></button>
+          <span class="dtp-phase">验证</span>
+          <span class="dtp-text">检查移动端布局与导航 · 下一步：修复小屏溢出</span>
+          <span class="dtp-eta">约 3 分钟</span>
+        </div>
+        <div class="dtp-list">
+          <div class="dtp-list-row dtp-list-row-live"><span class="dtp-list-index">节点 5</span><span class="dtp-list-badge dtp-list-badge-live">进行中</span><span class="dtp-list-colon">：</span><span class="dtp-list-label">检查移动端布局与导航</span><span class="dtp-list-meta">验证 · 已用 1 分 12 秒</span></div>
+          <div class="dtp-list-rule"></div>
+          <div class="dtp-list-row"><span class="dtp-list-index">节点 0</span><span class="dtp-list-badge">已完成</span><span class="dtp-list-colon">：</span><span class="dtp-list-label">梳理需求与页面结构</span><span class="dtp-list-meta">规划 · 耗时 2 分钟 · 16:05 完成</span></div>
+          <div class="dtp-list-row"><span class="dtp-list-index">节点 1</span><span class="dtp-list-badge">已完成</span><span class="dtp-list-colon">：</span><span class="dtp-list-label">搭建页面骨架与导航</span><span class="dtp-list-meta">执行 · 耗时 3 分钟 · 16:12 完成</span></div>
+          <div class="dtp-list-row"><span class="dtp-list-index">节点 2</span><span class="dtp-list-badge">已完成</span><span class="dtp-list-colon">：</span><span class="dtp-list-label">接入三篇周报内容</span><span class="dtp-list-meta">执行 · 耗时 4 分钟 · 16:28 完成</span></div>
+          <div class="dtp-list-row"><span class="dtp-list-index">节点 3</span><span class="dtp-list-badge">已完成</span><span class="dtp-list-colon">：</span><span class="dtp-list-label">本地预览并修正样式</span><span class="dtp-list-meta">验证 · 耗时 2 分钟 · 16:35 完成</span></div>
+          <div class="dtp-list-row"><span class="dtp-list-index">节点 4</span><span class="dtp-list-badge">已完成</span><span class="dtp-list-colon">：</span><span class="dtp-list-label">检查桌面端与导航跳转</span><span class="dtp-list-meta">验证 · 耗时 3 分钟 · 16:42 完成</span></div>
+        </div>
+      </div>
+      <div class="composer">
+        <div class="composer-placeholder">发消息或创建任务，/ 调用指令，@ 文件或对话</div>
+        <div class="composer-tools"><span class="plus">＋</span><span class="pill">完全权限</span><span class="pill">AI 控制电脑</span><span class="spacer"></span><span class="model">DeepSeek V4.1 Flash</span><span class="send">↑</span></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ───────────────────────────── scene 2: completed / right sidebar cards ───────────────────────────── -->
+<div class="app" id="scene-completed">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">d</span>
+      <span class="brand-name">deepseek <b>HARNESS</b></span>
+      <span class="brand-toggle">◧</span>
+    </div>
+    <button class="new-session"><span class="plus">+</span> 新会话 <kbd>Ctrl+Alt+N</kbd></button>
+    <div class="side-scroll">
+      <div class="side-caption">5 项 <span class="tools">⌕ ⚙</span></div>
+      <div class="nav-row"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg> 插件</div>
+      <div class="nav-row"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></svg> 上下文管理</div>
+      <div class="nav-row"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2.5 4.5h4l1.2 1.4h5.8v6.6h-11z"/></svg> 作品</div>
+      <div class="nav-row"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="2.5" y="3" width="11" height="10" rx="1.4"/><path d="M2.5 6.5h11M6.5 6.5v6.5"/></svg> 任务看板</div>
+      <div class="workspace-head"><span class="dot" style="background:#aeb3bb"></span> 青柠工作室 <span class="tools">⌕ ⚙ ＋</span></div>
+      <div class="workspace-name">团队空间</div>
+      <div class="session active"><span class="session-title">发布团队周报站点</span><span class="session-time">刚刚</span></div>
+      <div class="session"><span class="session-title">整理产品反馈</span><span class="session-time">1 小时</span></div>
+      <div class="session"><span class="session-title">升级构建脚本</span><span class="session-time">昨天</span></div>
+      <div class="session"><span class="session-title">查看部署日志</span><span class="session-time">昨天</span></div>
+    </div>
+    <div class="sidebar-foot">⋯ 更多</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <span class="title">发布团队周报站点</span>
+      <span class="chip">网页</span>
+      <nav class="tabs">
+        <span class="tab active">对话</span>
+        <span class="tab">上下文</span>
+        <span class="tab">编队</span>
+        <span class="tab">⋯</span>
+      </nav>
+      <div class="topbar-right">
+        <span class="icon-btn">⋯</span>
+        <span class="icon-btn">◫</span>
+      </div>
+    </header>
+
+    <div class="chat">
+      <div class="chat-inner">
+        <div class="user-msg">
+          <div class="bubble">把团队周报站点搭出来并发布到 GitHub Pages，先完成页面和内容，再检查移动端。</div>
+          <div class="msg-time">16:02</div>
+        </div>
+        <div class="assistant-msg">
+          <div class="turn-head"><span>已完成，用时 44 分钟</span><span class="chev">⌄</span></div>
+          <div class="assistant-text">周报站点已经发布，桌面端和手机都验证通过。</div>
+          <ul class="checklist">
+            <li><span class="check">✓</span>三篇周报已归档到「团队周报」</li>
+            <li><span class="check">✓</span>GitHub Pages 部署成功</li>
+            <li><span class="check">✓</span>小屏导航和表格横向滚动正常</li>
+          </ul>
+          <div class="assistant-text"><a class="reply-link" href="#">weekly.example.com</a></div>
+          <div class="summary">
+            <div class="summary-title">部署详情</div>
+            <div class="summary-grid">
+              <span>站点</span><b>weekly.example.com</b>
+              <span>分支</span><b>gh-pages</b>
+              <span>检查</span><b class="ok">桌面端 / 移动端 · 通过</b>
+            </div>
+          </div>
+          <div class="turn-actions">
+            <button class="icon-btn" aria-label="复制"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+            <button class="icon-btn" aria-label="好的回答"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v12"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg></button>
+            <button class="icon-btn" aria-label="有问题的回答"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V2"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg></button>
+            <button class="icon-btn" aria-label="在上下文视图中查看"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="3" x2="21" y1="6" y2="6"/><line x1="3" x2="21" y1="12" y2="12"/><line x1="3" x2="21" y1="18" y2="18"/><circle cx="8" cy="6" r="1.7"/><circle cx="16" cy="12" r="1.7"/><circle cx="11" cy="18" r="1.7"/></svg></button>
+            <button class="dtp-footer-action" aria-label="查看本次任务节点" title="查看本次任务节点">
+              <svg viewBox="0 0 1024 1024" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M394.88 844.16a349.44 349.44 0 0 1-117.44-69.76 32 32 0 0 0-42.56 47.68 413.76 413.76 0 0 0 138.88 82.24 32 32 0 0 0 10.56 1.92 32 32 0 0 0 10.56-62.08zM489.28 873.28A32 32 0 0 0 480 896a32 32 0 0 0 2.56 12.16 37.12 37.12 0 0 0 6.72 10.56 36.8 36.8 0 0 0 10.56 6.72 30.08 30.08 0 0 0 24.32 0 28.8 28.8 0 0 0 17.28-17.28A32 32 0 0 0 544 896a32 32 0 0 0-54.72-22.72z"></path><path d="M512 32v64A416 416 0 0 0 151.68 720a32 32 0 1 0 55.36-32A352 352 0 0 1 512 160v64a288 288 0 0 1 288 288h64a352 352 0 0 1-234.56 332.16 32 32 0 1 0 21.44 60.16A416 416 0 0 0 928 512h64A480 480 0 0 0 512 32z"></path></svg>
+            </button>
+            <button class="icon-btn" aria-label="分支"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></button>
+            <span class="usage">用量 96K tok</span>
+            <span class="time">16:48</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="composer-placeholder">发消息或创建任务，/ 调用指令，@ 文件或对话</div>
+        <div class="composer-tools"><span class="plus">＋</span><span class="pill">完全权限</span><span class="pill">AI 控制电脑</span><span class="spacer"></span><span class="model">DeepSeek V4.1 Flash</span><span class="send">↑</span></div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="rightbar">
+    <div class="rightbar-head">
+      <div class="rightbar-tabs">
+        <button class="rightbar-tab"><svg viewBox="0 0 1024 1024" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M394.88 844.16a349.44 349.44 0 0 1-117.44-69.76 32 32 0 0 0-42.56 47.68 413.76 413.76 0 0 0 138.88 82.24 32 32 0 0 0 10.56 1.92 32 32 0 0 0 10.56-62.08zM489.28 873.28A32 32 0 0 0 480 896a32 32 0 0 0 2.56 12.16 37.12 37.12 0 0 0 6.72 10.56 36.8 36.8 0 0 0 10.56 6.72 30.08 30.08 0 0 0 24.32 0 28.8 28.8 0 0 0 17.28-17.28A32 32 0 0 0 544 896a32 32 0 0 0-54.72-22.72z"></path><path d="M512 32v64A416 416 0 0 0 151.68 720a32 32 0 1 0 55.36-32A352 352 0 0 1 512 160v64a288 288 0 0 1 288 288h64a352 352 0 0 1-234.56 332.16 32 32 0 1 0 21.44 60.16A416 416 0 0 0 928 512h64A480 480 0 0 0 512 32z"></path></svg> 节点 <span class="close">×</span></button>
+        <button class="rightbar-plus">＋</button>
+      </div>
+      <div class="rightbar-tools"><span>◫</span><span>⋯</span></div>
+    </div>
+    <div class="rightbar-body">
+      <div class="dtp-panel">
+        <div class="dtp-panel-head"><span class="dtp-panel-title">本次任务节点</span><span class="dtp-panel-count">5 个节点</span></div>
+        <div class="dtp-cards">
+          <div class="dtp-card"><div class="dtp-card-rail"><span class="dtp-card-dot"></span><span class="dtp-card-line"></span></div><div class="dtp-card-body"><div class="dtp-card-head"><span class="dtp-card-index">节点 0</span><span class="dtp-card-badge">已完成</span><span class="dtp-card-duration">2 分钟</span></div><div class="dtp-card-label">梳理需求与页面结构</div><div class="dtp-card-meta">规划 · 16:05 完成</div></div></div>
+          <div class="dtp-card"><div class="dtp-card-rail"><span class="dtp-card-dot"></span><span class="dtp-card-line"></span></div><div class="dtp-card-body"><div class="dtp-card-head"><span class="dtp-card-index">节点 1</span><span class="dtp-card-badge">已完成</span><span class="dtp-card-duration">3 分钟</span></div><div class="dtp-card-label">搭建页面骨架与导航</div><div class="dtp-card-meta">执行 · 16:12 完成</div></div></div>
+          <div class="dtp-card"><div class="dtp-card-rail"><span class="dtp-card-dot"></span><span class="dtp-card-line"></span></div><div class="dtp-card-body"><div class="dtp-card-head"><span class="dtp-card-index">节点 2</span><span class="dtp-card-badge">已完成</span><span class="dtp-card-duration">4 分钟</span></div><div class="dtp-card-label">接入三篇周报内容</div><div class="dtp-card-meta">执行 · 16:28 完成</div></div></div>
+          <div class="dtp-card"><div class="dtp-card-rail"><span class="dtp-card-dot"></span><span class="dtp-card-line"></span></div><div class="dtp-card-body"><div class="dtp-card-head"><span class="dtp-card-index">节点 3</span><span class="dtp-card-badge">已完成</span><span class="dtp-card-duration">2 分钟</span></div><div class="dtp-card-label">本地预览并修正样式</div><div class="dtp-card-meta">验证 · 16:35 完成</div></div></div>
+          <div class="dtp-card"><div class="dtp-card-rail"><span class="dtp-card-dot"></span></div><div class="dtp-card-body"><div class="dtp-card-head"><span class="dtp-card-index">节点 4</span><span class="dtp-card-badge">已完成</span><span class="dtp-card-duration">3 分钟</span></div><div class="dtp-card-label">检查桌面端与移动端</div><div class="dtp-card-meta">验证 · 16:46 完成</div></div></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+</body>
+</html>

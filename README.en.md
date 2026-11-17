@@ -6,6 +6,18 @@ A DeepSeek Harness (DSH) plugin that shows how far the current task has got, bot
 
 ![dsh-task-progress](https://img.shields.io/badge/DSH-0.2.2--rc.1-4176e6) ![license](https://img.shields.io/badge/license-MIT-green)
 
+## Scene previews
+
+Two illustrations of a fictional task (no real conversation content).
+
+**In progress:** several completed nodes and one current node on the bar; hovering a node opens its detail card, and the node list is expanded below.
+
+![In-progress node rail, node card and expanded list](docs/images/scene-progress.png)
+
+**Completed:** after the reply is final, the gray node glyph in the reply footer (after the context action, before the branch) opens the Right Sidebar, which lists every node as a card in time order.
+
+![Completed-task footer glyph and right-sidebar node cards](docs/images/scene-completed.png)
+
 ## Features
 
 | Where | What it shows |
