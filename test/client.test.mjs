@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 
 /** A tiny React stand-in: enough hooks to drive the dock's render branches. */
@@ -145,6 +146,10 @@ async function loadDock(store) {
   await import('../client.js')
   const plugin = globalThis.__dockPlugin
   assert.ok(plugin, 'client.js registered a module')
+  // The Host's client-module loader keys factories by the package name; a
+  // stale id here makes it silently skip this half of the plugin.
+  const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+  assert.equal(plugin.id, manifest.name, 'client module id must equal the package name')
   const registered = {}
   const ctx = {
     effect(fn) {

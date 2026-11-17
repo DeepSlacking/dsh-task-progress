@@ -61,7 +61,7 @@ Three layers, highest first: **settings page > row config > theme default**. The
 
 ```yaml
 - id: task-progress
-  name: '@local/dsh-task-progress'
+  name: 'dsh-task-progress'
   config:
     barHeight: 8
     barColor: '#7c5cff'

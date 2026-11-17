@@ -54,14 +54,14 @@ plugin_manager action=install_bundle target=D:\\DSH-workspace\\dsh-task-progress
 ```bash
 cd C:/Users/<you>/.dsh/profiles/desktop
 npm install "file:D:/DSH-workspace/dsh-task-progress"
-# 再把 "@local/dsh-task-progress" 加进 package.json 的 dsh.profile.bundles，
+# 再把 "dsh-task-progress" 加进 package.json 的 dsh.profile.bundles，
 # 并在 cordis.patch.yml 加一行（name 必须与 package.json 的包名一致）：
 #   - insert:
 #       - id: task-progress
-#         name: '@local/dsh-task-progress'
+#         name: 'dsh-task-progress'
 ```
 
-发布成独立 npm 包后，把上面的 `@local/dsh-task-progress` 换成实际包名即可。安装后重启 DSH 桌面端加载插件。
+包名是 `dsh-task-progress`；`cordis.patch.yml` 的 name、`client.js` 里 `__ModuleLoader__.load` 的 id 都必须与它一致。安装后重启 DSH 桌面端加载插件。
 
 ## 外观配置
 
@@ -75,7 +75,7 @@ npm install "file:D:/DSH-workspace/dsh-task-progress"
 
 ```yaml
 - id: task-progress
-  name: '@local/dsh-task-progress'
+  name: 'dsh-task-progress'
   config:
     barHeight: 8
     barColor: '#7c5cff'
