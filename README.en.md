@@ -129,6 +129,18 @@ dsh-task-progress/
 - Each side-channel evaluation: ~600–900 input tokens, output capped at 1.2k (usually a few dozen), at most once per 2 minutes per running session; skipped entirely while a model self-report is fresh.
 - The percentage is the model's judgement, not a measurement, and may be optimistic; the scale, `revised` and the side-channel check only mitigate that. The evaluator sees this turn's digest only, not the code.
 
+## Releases
+
+Version history lives in [CHANGELOG.md](CHANGELOG.md). GitHub Releases are created by `.github/workflows/release.yml` when `main` is pushed:
+
+1. Set the new version in `package.json`'s `version`.
+2. Add a `## [x.y.z] - YYYY-MM-DD` section at the top of `CHANGELOG.md`, with `### Added` / `### Changed` / `### Fixed` as needed.
+3. Commit and push to `main`. When the version has no `vx.y.z` release yet, the workflow creates the tag and Release from that CHANGELOG section; an unchanged version is skipped.
+
+Manual: `gh release create vx.y.z --target <commit> --title vx.y.z --notes-file <(node scripts/changelog-section.mjs x.y.z)`.
+
+Releases: https://github.com/DeepSlacking/dsh-task-progress/releases
+
 ## License
 
 MIT License, Copyright (c) 2026 dsh-task-progress contributors.

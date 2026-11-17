@@ -133,6 +133,18 @@ dsh-task-progress/
 - 节点耗时是**观察区间**（宿主每 15 秒观察一次），分辨率是十几秒；旁路评估换一种措辞描述同一件事时会多出一个内容相近的节点。
 - 轨道只存在宿主内存里，DSH 重启后从当前节点重新开始；投影和自评仍在会话日志里。
 
+## 发布 / Releases
+
+版本记录在 [CHANGELOG.md](CHANGELOG.md)，GitHub Releases 由 `.github/workflows/release.yml` 在推送到 `main` 时自动创建：
+
+1. 把 `package.json` 的 `version` 改成新版本号；
+2. 在 `CHANGELOG.md` 顶部加 `## [x.y.z] - YYYY-MM-DD` 段，按需写 `### Added` / `### Changed` / `### Fixed`；
+3. 提交并推送到 `main`。工作流发现该版本还没有 `vx.y.z` Release 时，会用 CHANGELOG 的对应段落创建 tag 和 Release；版本号没变则自动跳过。
+
+也可以手动创建：`gh release create vx.y.z --target <commit> --title vx.y.z --notes-file <(node scripts/changelog-section.mjs x.y.z)`。
+
+Releases 页：https://github.com/DeepSlacking/dsh-task-progress/releases
+
 ## 许可
 
 MIT License，Copyright (c) 2026 dsh-task-progress contributors。
