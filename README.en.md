@@ -12,7 +12,7 @@ A DeepSeek Harness (DSH) plugin that shows how far the current task has got, bot
 | --- | --- |
 | Above the composer (`conversation.input.dock`) | Two rows: the first has the bar, the percentage and this turn's nodes; the second has the phase, current node, next step and estimated time left. Width follows the chat content area (the host's `--dsh-chat-content-width`) and tracks resizing |
 | On the session row (`sidebar.session.row.trailing`) | A small ring and percentage next to the timestamp, colored like the bar; shown only for a running, non-empty, non-subagent session that has an estimate |
-| In a completed reply's footer (`conversation.chat.assistant-actions`) | After the model's reply is final, a gray progress glyph after this turn's usage/time; only on the latest completed turn |
+| In a completed reply's footer (`conversation.chat.assistant-actions`) | After the model's reply is final, a gray progress glyph after the context action and before the branch action; only on the latest completed turn |
 | Right Sidebar (`sidebar.right.pane.tab`) | Clicking that glyph opens a **Nodes** card page: every node of the task in time order, with durations |
 
 It appears only while a session runs and lingers briefly after it ends; history and idle sessions show nothing. The large percentage is always **this turn's** 0–100% and never accumulates across turns.
@@ -44,7 +44,7 @@ The list includes completed nodes that are temporarily hidden from the bar after
 
 ### Completed-task entry
 
-Once the reply is final and this is the latest turn, the completed message's action row (`conversation.chat.assistant-actions`) shows a **gray** progress glyph after this turn's usage/time. It is not repeated on older turns; only the latest completed turn carries it. Clicking it:
+Once the reply is final and this is the latest turn, the completed message's action row (`conversation.chat.assistant-actions`) shows a **gray** progress glyph after the context action and before the branch action. It is not repeated on older turns; only the latest completed turn carries it. Clicking it:
 
 - opens the Right Sidebar on a tab named **Nodes** with the same glyph in its title;
 - shows every node of `rails[sessionId]` as a card in time order: number, done/in-progress, label, phase, duration and finish time; the header carries the total;

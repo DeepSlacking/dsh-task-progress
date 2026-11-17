@@ -1,6 +1,6 @@
 {
   "name": "dsh-task-progress",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "type": "module",
   "description": "Shows the running task's progress with a node rail, a completed-task glyph, and node cards in the right sidebar, self-assessed by the session's own model at nodes.",
   "exports": {

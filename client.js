@@ -1042,7 +1042,7 @@ window.__ModuleLoader__.load({
     ].join('')
 
     const FOOTER_CSS = [
-      '.dtp-footer-action{order:10;flex:none;width:28px;height:28px;padding:6px;border:0;',
+      '.dtp-footer-action{flex:none;width:28px;height:28px;padding:6px;border:0;',
       'border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-tertiary);',
       'cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}',
       '.dtp-footer-action:hover{background:var(--dsw-alias-interactive-bg-hover);',
@@ -1327,7 +1327,7 @@ window.__ModuleLoader__.load({
     /**
      * The progress glyph in a completed turn's action row. It is shown only
      * after the reply is final, only on the latest turn, and sits after the
-     * usage/time (CSS order) so it reads as an extension of the context row.
+     * context action and before the branch action (a high slot order).
      */
     function makeFooterNodeAction(useJudgements, sessions, openNodes) {
       return function FooterNodeAction(props) {
@@ -1466,6 +1466,7 @@ window.__ModuleLoader__.load({
         ctx.slots.inject('conversation.chat.assistant-actions', () => ctx.slots.register({
           name: 'conversation.chat.assistant-actions',
           id: 'task-progress',
+          order: 1000,
           locale: NS,
           inject: sessionId => ({ sessionId }),
         }, FooterNodeAction))

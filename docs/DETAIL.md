@@ -37,7 +37,7 @@ The leftmost control on the second row is a **Nodes** button with a count badge.
 
 ### Completed-task entry
 
-Once the reply is final and this is the latest turn, the completed message's action row (`conversation.chat.assistant-actions`) shows a **gray** progress glyph after this turn's usage/time. It is not repeated on older turns; only the latest completed turn carries it. Clicking it:
+Once the reply is final and this is the latest turn, the completed message's action row (`conversation.chat.assistant-actions`) shows a **gray** progress glyph after the context action and before the branch action. It is not repeated on older turns; only the latest completed turn carries it. Clicking it:
 
 - opens the Right Sidebar on a tab named **Nodes** with the same glyph in its title;
 - shows every node of `rails[sessionId]` as a card in time order: number, done/in-progress, label, phase, duration and finish time; the header carries the total;
