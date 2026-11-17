@@ -128,7 +128,7 @@ function fixture() {
  * @param store - the polled evaluator/rail store the dock should read.
  * @returns {{ render: () => object }}
  */
-async function loadDock(store) {
+async function loadDock(store, sessionState = { byId: {}, projectionsBySession: {} }) {
   const fake = makeFakeReact()
   globalThis.window = {
     __ModuleLoader__: {
@@ -151,6 +151,7 @@ async function loadDock(store) {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
   assert.equal(plugin.id, manifest.name, 'client module id must equal the package name')
   const registered = {}
+  const tabTypes = []
   const ctx = {
     effect(fn) {
       try {
@@ -159,7 +160,10 @@ async function loadDock(store) {
         return undefined
       }
     },
-    locale: { register: () => () => {} },
+    locale: {
+      register: () => () => {},
+      bind: () => (key, params) => key,
+    },
     slots: {
       inject: (_name, fn) => fn(),
       register: (spec, component) => {
@@ -170,9 +174,20 @@ async function loadDock(store) {
     sessions: {
       list: {
         subscribe: () => () => {},
-        getSnapshot: () => ({ byId: {}, projectionsBySession: {} }),
+        getSnapshot: () => sessionState,
       },
     },
+    sidebarRightTabs: {
+      register: definition => {
+        tabTypes.push(definition)
+        return () => {}
+      },
+    },
+    sidebarRight: {
+      openTabIn: () => {},
+      openTabs: { getSnapshot: () => [] },
+    },
+    layout: { openRightbar: () => {} },
   }
   plugin.factory((id) => {
     assert.equal(id, 'react')
@@ -180,8 +195,13 @@ async function loadDock(store) {
   }).apply(ctx)
   const Dock = registered['conversation.input.dock']
   const Settings = registered['settings.section']
+  const TabPanel = registered['sidebar.right.pane.tab']
   assert.ok(Dock, 'dock registered')
   assert.ok(Settings, 'settings registered')
+  assert.ok(TabPanel, 'node panel registered')
+  assert.equal(tabTypes.length, 1)
+  assert.equal(tabTypes[0].id, 'task-progress')
+  assert.equal(tabTypes[0].kind, 'task-progress')
   fake.reset()
   fake.setExternal(store)
   const { progress } = fixture()
@@ -197,6 +217,10 @@ async function loadDock(store) {
     renderSettings: () => {
       fake.beginRender()
       return Settings({ t: undefined })
+    },
+    renderPanel: (sessionId = 'session-1') => {
+      fake.beginRender()
+      return TabPanel({ t: undefined, sessionId })
     },
   }
 }
@@ -226,6 +250,46 @@ test('the settings preview grows on hover and opens a sample node card', async (
   assert.match(textOf(tip), /节点 1/)
   assert.match(textOf(tip), /进行中/)
   assert.match(textOf(tip), /下一步：检查节点详情卡/)
+})
+
+test('the right Sidebar panel lists every node as a card in time order', async () => {
+  const { store } = fixture()
+  const { renderPanel } = await loadDock(store)
+  const tree = renderPanel()
+  const cards = byClass(tree, 'dtp-card')
+  assert.equal(cards.length, 2)
+  assert.match(textOf(cards[0]), /节点 0/)
+  assert.match(textOf(cards[0]), /已完成/)
+  assert.match(textOf(cards[0]), /定位问题/)
+  assert.match(textOf(cards[0]), /耗时 5 分钟/)
+  assert.match(textOf(cards[0]), /完成/)
+  assert.match(textOf(cards[1]), /节点 1/)
+  assert.match(textOf(cards[1]), /进行中/)
+  assert.match(textOf(cards[1]), /改客户端样式/)
+  assert.match(textOf(tree), /本次任务节点/)
+  assert.match(textOf(tree), /2 个节点/)
+})
+
+test('the node panel shows the last node as completed once the turn is done', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const { renderPanel } = await loadDock(store, {
+    byId: {
+      'session-1': {
+        projectionValues: {
+          taskProgress: { v: 3, turn: 4, percent: 100, done: true, updatedAt: now },
+        },
+      },
+    },
+    projectionsBySession: {},
+  })
+  const tree = renderPanel()
+  const cards = byClass(tree, 'dtp-card')
+  assert.equal(cards.length, 2)
+  assert.match(textOf(cards[1]), /节点 1/)
+  assert.match(textOf(cards[1]), /已完成/)
+  assert.doesNotMatch(textOf(cards[1]), /进行中/)
+  assert.match(textOf(cards[1]), /完成/)
 })
 
 test('the bar shows the open task percent with one node per closed milestone', async () => {

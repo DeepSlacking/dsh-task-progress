@@ -35,7 +35,15 @@ The leftmost control on the second row is a **Nodes** button with a count badge.
 - below a separator, every completed node in time order (`Node 0 [Done]: detail · phase · duration · finished at`), numbered from 0;
 - the list has a **fixed 180px height** and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
 
-The list includes completed nodes that are temporarily hidden from the bar after a lowered estimate.
+### Completed-task entry
+
+Once the reply is final and this is the latest turn, the completed message's action row (`conversation.chat.assistant-actions`) shows a **gray** progress glyph after this turn's usage/time. It is not repeated on older turns; only the latest completed turn carries it. Clicking it:
+
+- opens the Right Sidebar on a tab named **Nodes** with the same glyph in its title;
+- shows every node of `rails[sessionId]` as a card in time order: number, done/in-progress, label, phase, duration and finish time; the header carries the total;
+- the Host keeps the completed turn's rail until the next turn's first observation, and the client marks the last node done as soon as `taskProgress.done` arrives, even before the next Host sweep.
+
+The plugin icon (the one shown under Settings → Plugins) is now the same glyph (`icon.svg`).
 
 ## Who evaluates, and how
 

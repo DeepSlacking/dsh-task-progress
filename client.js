@@ -58,6 +58,11 @@ window.__ModuleLoader__.load({
         'step.running': '进行中',
         'step.elapsed': '已用 {t}',
         'list.title': '节点',
+        'tab.title': '节点',
+        'tab.heading': '本次任务节点',
+        'tab.count': '{n} 个节点',
+        'tab.empty': '本轮还没有节点记录。',
+        'footer.view': '查看本次任务节点',
         'list.expand': '展开节点列表',
         'list.collapse': '收起节点列表',
         'list.aria': '节点列表',
@@ -106,6 +111,11 @@ window.__ModuleLoader__.load({
         'step.running': 'In progress',
         'step.elapsed': '{t} elapsed',
         'list.title': 'Nodes',
+        'tab.title': 'Nodes',
+        'tab.heading': 'Nodes for this task',
+        'tab.count': '{n} nodes',
+        'tab.empty': 'No nodes recorded for this turn yet.',
+        'footer.view': "View this task's nodes",
         'list.expand': 'Expand node list',
         'list.collapse': 'Collapse node list',
         'list.aria': 'Node list',
@@ -345,6 +355,28 @@ window.__ModuleLoader__.load({
       const rail = store.rails[sessionId]
       if (rail === null || rail === undefined || rail.turn !== turn || !Array.isArray(rail.steps)) return []
       return rail.steps
+    }
+
+    /** The plugin's task-progress glyph (the same paths as icon.svg), tinted by CSS. */
+    const GLYPH_PATHS = [
+      'M394.88 844.16a349.44 349.44 0 0 1-117.44-69.76 32 32 0 0 0-42.56 47.68 413.76 413.76 0 0 0 138.88 82.24 32 32 0 0 0 10.56 1.92 32 32 0 0 0 10.56-62.08zM489.28 873.28A32 32 0 0 0 480 896a32 32 0 0 0 2.56 12.16 37.12 37.12 0 0 0 6.72 10.56 36.8 36.8 0 0 0 10.56 6.72 30.08 30.08 0 0 0 24.32 0 28.8 28.8 0 0 0 17.28-17.28A32 32 0 0 0 544 896a32 32 0 0 0-54.72-22.72z',
+      'M512 32v64A416 416 0 0 0 151.68 720a32 32 0 1 0 55.36-32A352 352 0 0 1 512 160v64a288 288 0 0 1 288 288h64a352 352 0 0 1-234.56 332.16 32 32 0 1 0 21.44 60.16A416 416 0 0 0 928 512h64A480 480 0 0 0 512 32z',
+    ]
+
+    function ProgressGlyph({ size = 16, className }) {
+      return h(
+        'svg',
+        {
+          className,
+          width: size,
+          height: size,
+          viewBox: '0 0 1024 1024',
+          fill: 'currentColor',
+          'aria-hidden': 'true',
+          focusable: 'false',
+        },
+        GLYPH_PATHS.map((d, index) => h('path', { key: index, d })),
+      )
     }
 
     /**
@@ -976,8 +1008,52 @@ window.__ModuleLoader__.load({
       '.dtp-set-btn:disabled{opacity:.45;cursor:default;}',
     ].join('')
 
+    const PANEL_CSS = [
+      '.dtp-panel{display:flex;flex-direction:column;gap:10px;height:100%;min-height:100%;',
+      'box-sizing:border-box;padding:12px;overflow:auto;font-size:12px;line-height:1.5;}',
+      '.dtp-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}',
+      '.dtp-panel-title{font-weight:600;color:var(--dsw-alias-label-primary);}',
+      '.dtp-panel-count{flex:none;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;}',
+      '.dtp-cards{display:flex;flex-direction:column;gap:8px;}',
+      '.dtp-card{display:flex;gap:9px;padding:9px 10px;border:0.5px solid var(--dsw-alias-border-l1);',
+      'border-radius:10px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));}',
+      '.dtp-card-live{border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 45%,var(--dsw-alias-border-l1));',
+      'background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 5%,var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff)));}',
+      '.dtp-card-rail{flex:none;width:16px;display:flex;flex-direction:column;align-items:center;}',
+      '.dtp-card-dot{width:8px;height:8px;margin-top:5px;border-radius:50%;',
+      'background:var(--dsw-alias-state-success-primary,#16a34a);',
+      'box-shadow:0 0 0 2px color-mix(in srgb,var(--dsw-alias-state-success-primary,#16a34a) 18%,transparent);}',
+      '.dtp-card-live .dtp-card-dot{background:var(--dsw-alias-state-business-primary);',
+      'box-shadow:0 0 0 2px color-mix(in srgb,var(--dsw-alias-state-business-primary) 18%,transparent);}',
+      '.dtp-card-line{flex:1;width:1px;min-height:10px;margin-top:3px;background:var(--dsw-alias-border-l1);}',
+      '.dtp-card-body{flex:1;min-width:0;}',
+      '.dtp-card-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}',
+      '.dtp-card-index{color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums;}',
+      '.dtp-card-badge{padding:0 6px;border-radius:999px;font-size:10px;line-height:16px;',
+      'background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#16a34a) 14%,transparent);',
+      'color:var(--dsw-alias-state-success-primary,#16a34a);}',
+      '.dtp-card-badge-live{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 14%,transparent);',
+      'color:var(--dsw-alias-state-business-primary);}',
+      '.dtp-card-duration{margin-inline-start:auto;color:var(--dsw-alias-label-tertiary);',
+      'font-size:10px;font-variant-numeric:tabular-nums;}',
+      '.dtp-card-label{margin-top:3px;color:var(--dsw-alias-label-primary);word-break:break-word;}',
+      '.dtp-card-meta{margin-top:2px;color:var(--dsw-alias-label-tertiary);font-size:11px;}',
+      '.dtp-panel-empty{padding:18px 4px;text-align:center;color:var(--dsw-alias-label-tertiary);}',
+    ].join('')
+
+    const FOOTER_CSS = [
+      '.dtp-footer-action{order:10;flex:none;width:28px;height:28px;padding:6px;border:0;',
+      'border-radius:var(--dsw-radius-sm);background:transparent;color:var(--dsw-alias-label-tertiary);',
+      'cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}',
+      '.dtp-footer-action:hover{background:var(--dsw-alias-interactive-bg-hover);',
+      'color:var(--dsw-alias-label-secondary);}',
+      '.dtp-footer-action:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);',
+      'outline-offset:1px;}',
+      '.dtp-footer-action svg{width:17px;height:17px;}',
+    ].join('')
+
     /**
-     * The Settings section: three rows plus a live preview.
+     * The Settings section: four rows plus a live preview.
      * @param store - appearance override store (set/reset).
      * @param useStyle - hook over the overrides.
      * @param useJudgements - hook over the evaluator store (carries the Host config).
@@ -1126,17 +1202,231 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** The right Sidebar tab: every node of the completed turn as a card, in time order. */
+    function makeNodePanel(useJudgements, sessions) {
+      return function NodePanel(props) {
+        const t = props.t
+        const sessionId = props.sessionId
+        const judgements = useJudgements()
+        const state = React.useSyncExternalStore(
+          listener => (sessions !== null && sessions !== undefined && sessions.list !== null
+            && sessions.list !== undefined && typeof sessions.list.subscribe === 'function'
+            ? sessions.list.subscribe(listener)
+            : () => {}),
+          () => (sessions !== null && sessions !== undefined && sessions.list !== null
+            && sessions.list !== undefined && typeof sessions.list.getSnapshot === 'function'
+            ? sessions.list.getSnapshot()
+            : undefined),
+        )
+        const rail = sessionId !== undefined && judgements !== null && judgements !== undefined
+          && judgements.rails !== null && judgements.rails !== undefined
+          ? judgements.rails[sessionId]
+          : undefined
+        const summary = state !== null && state !== undefined && state.byId !== undefined
+          ? state.byId[sessionId]
+          : undefined
+        const current = state !== null && state !== undefined && state.projectionsBySession !== undefined
+          && state.projectionsBySession[sessionId] !== undefined
+          ? state.projectionsBySession[sessionId].values
+          : undefined
+        const raw = current !== undefined && current.taskProgress !== undefined
+          ? current.taskProgress
+          : summary !== undefined && summary.projectionValues !== undefined
+            ? summary.projectionValues.taskProgress
+            : undefined
+        const progress = mergeJudgement(
+          raw,
+          judgements !== null && judgements !== undefined && judgements.sessions !== undefined
+            ? judgements.sessions[sessionId]
+            : undefined,
+          Date.now(),
+        )
+        // The Host closes the last node on its next sweep; the completed
+        // turn's card should not read "in progress" in the meantime.
+        const done = progress !== undefined && progress !== null && progress.done === true
+          && rail !== null && rail !== undefined && progress.turn === rail.turn
+        const doneAt = done ? (progress.updatedAt > 0 ? progress.updatedAt : Date.now()) : 0
+        const steps = rail !== null && rail !== undefined && Array.isArray(rail.steps)
+          ? rail.steps.filter(step => step !== null && typeof step === 'object')
+          : []
+        const cards = steps.map((step, index) => {
+          const closed = step.endedAt > 0
+          const live = !closed && !done
+          const ended = closed ? step.endedAt : (done ? Math.max(step.at, doneAt) : 0)
+          const took = closed ? step.durationMs : (live ? Math.max(0, Date.now() - step.at) : Math.max(0, ended - step.at))
+          const meta = [tt(t, `phase.${step.phase}`)]
+          if (!live) {
+            const finished = timeText(ended)
+            if (finished !== '') meta.push(tt(t, 'step.finished', { t: finished }))
+          }
+          return h(
+            'div',
+            { className: live ? 'dtp-card dtp-card-live' : 'dtp-card', key: `card-${index}` },
+            h(
+              'div',
+              { className: 'dtp-card-rail' },
+              h('span', { className: 'dtp-card-dot' }),
+              h('span', { className: 'dtp-card-line' }),
+            ),
+            h(
+              'div',
+              { className: 'dtp-card-body' },
+              h(
+                'div',
+                { className: 'dtp-card-head' },
+                h('span', { className: 'dtp-card-index' }, tt(t, 'step.index', { n: index })),
+                h(
+                  'span',
+                  { className: live ? 'dtp-card-badge dtp-card-badge-live' : 'dtp-card-badge' },
+                  tt(t, live ? 'step.running' : 'done'),
+                ),
+                h(
+                  'span',
+                  { className: 'dtp-card-duration' },
+                  live
+                    ? tt(t, 'step.elapsed', { t: durationText(t, took) })
+                    : tt(t, 'step.duration', { t: durationText(t, took) }),
+                ),
+              ),
+              h('div', { className: 'dtp-card-label' }, step.label),
+              h('div', { className: 'dtp-card-meta' }, meta.join(' · ')),
+            ),
+          )
+        })
+        return h(
+          React.Fragment,
+          null,
+          h('style', { key: 'dtp-panel-style' }, PANEL_CSS),
+          h(
+            'div',
+            { className: 'dtp-panel' },
+            h(
+              'div',
+              { className: 'dtp-panel-head' },
+              h('span', { className: 'dtp-panel-title' }, tt(t, 'tab.heading')),
+              h('span', { className: 'dtp-panel-count' }, tt(t, 'tab.count', { n: steps.length })),
+            ),
+            steps.length === 0
+              ? h('div', { className: 'dtp-panel-empty' }, tt(t, 'tab.empty'))
+              : h('div', { className: 'dtp-cards' }, cards),
+          ),
+        )
+      }
+    }
+
+    /** The tab chip's icon and label. */
+    function NodeTabTitle(props) {
+      return h(
+        'span',
+        { style: { display: 'inline-flex', alignItems: 'center', gap: '5px', minWidth: 0 } },
+        h(ProgressGlyph, { size: 14 }),
+        h('span', null, tt(props.t, 'tab.title')),
+      )
+    }
+
+    /**
+     * The progress glyph in a completed turn's action row. It is shown only
+     * after the reply is final, only on the latest turn, and sits after the
+     * usage/time (CSS order) so it reads as an extension of the context row.
+     */
+    function makeFooterNodeAction(useJudgements, sessions, openNodes) {
+      return function FooterNodeAction(props) {
+        const t = props.t
+        const sessionId = props.sessionId
+        const judgements = useJudgements()
+        const state = React.useSyncExternalStore(
+          listener => (sessions !== null && sessions !== undefined && sessions.list !== null
+            && sessions.list !== undefined && typeof sessions.list.subscribe === 'function'
+            ? sessions.list.subscribe(listener)
+            : () => {}),
+          () => (sessions !== null && sessions !== undefined && sessions.list !== null
+            && sessions.list !== undefined && typeof sessions.list.getSnapshot === 'function'
+            ? sessions.list.getSnapshot()
+            : undefined),
+        )
+        const [turn, setTurn] = React.useState(null)
+        const anchor = React.useCallback(node => {
+          if (node === null || node === undefined) return
+          const holder = typeof node.closest === 'function' ? node.closest('[data-turn-tail]') : null
+          setTurn(holder !== null ? holder.getAttribute('data-turn-tail') : null)
+        }, [])
+        const summary = state !== null && state !== undefined && state.byId !== undefined
+          ? state.byId[sessionId]
+          : undefined
+        const live = state !== null && state !== undefined && state.projectionsBySession !== undefined
+          && state.projectionsBySession[sessionId] !== undefined
+          ? state.projectionsBySession[sessionId].values
+          : undefined
+        const raw = live !== undefined && live.taskProgress !== undefined
+          ? live.taskProgress
+          : summary !== undefined && summary.projectionValues !== undefined
+            ? summary.projectionValues.taskProgress
+            : undefined
+        const progress = mergeJudgement(
+          raw,
+          judgements !== null && judgements !== undefined && judgements.sessions !== undefined
+            ? judgements.sessions[sessionId]
+            : undefined,
+          Date.now(),
+        )
+        const known = sessionId !== undefined && progress !== undefined && progress !== null
+          && progress.done === true && turn !== null && String(turn) === String(progress.turn)
+        return h(
+          React.Fragment,
+          null,
+          h('style', { key: 'dtp-footer-style' }, FOOTER_CSS),
+          h(
+            'button',
+            {
+              key: 'dtp-footer-node',
+              ref: anchor,
+              type: 'button',
+              className: 'dtp-footer-action',
+              style: known ? undefined : { display: 'none' },
+              'aria-label': tt(t, 'footer.view'),
+              title: tt(t, 'footer.view'),
+              onClick: event => {
+                event.preventDefault()
+                event.stopPropagation()
+                openNodes(sessionId)
+              },
+            },
+            h(ProgressGlyph, { size: 17 }),
+          ),
+        )
+      }
+    }
+
     return {
-      inject: ['slots', 'locale', 'sessions'],
+      inject: ['slots', 'locale', 'sessions', 'sidebarRightTabs', 'sidebarRight', 'layout'],
       apply(ctx) {
         ctx.effect(() => ctx.locale.register(NS, DICT), 'dsh-task-progress: dictionaries')
         const judgements = createJudgementStore(JUDGE_URL)
         const useJudgements = () => React.useSyncExternalStore(judgements.subscribe, judgements.getSnapshot)
         const styleStore = createStyleStore()
         const useStyle = () => React.useSyncExternalStore(styleStore.subscribe, styleStore.getSnapshot)
+        const t = typeof ctx.locale.bind === 'function' ? ctx.locale.bind(NS) : (key, params) => tt(null, key, params)
         const ProgressDock = makeProgressDock(useJudgements, useStyle)
         const RowTrailing = makeRowTrailing(ctx.sessions, useJudgements, useStyle)
         const SettingsPage = makeSettingsPage(styleStore, useStyle, useJudgements)
+        const NodePanel = makeNodePanel(useJudgements, ctx.sessions)
+        const openNodePanel = sessionId => {
+          try { ctx.layout.openRightbar(true, false) } catch {}
+          let attempts = 0
+          const tryOpen = () => {
+            try { ctx.sidebarRight.openTabIn(sessionId, 'task-progress', {}) } catch {}
+            attempts += 1
+            const tabs = ctx.sidebarRight.openTabs !== undefined
+              && typeof ctx.sidebarRight.openTabs.getSnapshot === 'function'
+              ? ctx.sidebarRight.openTabs.getSnapshot()
+              : []
+            const opened = Array.isArray(tabs) && tabs.some(tab => tab !== null && tab !== undefined
+              && tab.sessionId === sessionId && tab.kind === 'task-progress')
+            if (!opened && attempts < 6) setTimeout(tryOpen, 120)
+          }
+          tryOpen()
+        }
+        const FooterNodeAction = makeFooterNodeAction(useJudgements, ctx.sessions, openNodePanel)
         ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
           name: 'conversation.input.dock',
           id: 'task-progress',
@@ -1156,6 +1446,29 @@ window.__ModuleLoader__.load({
           label: () => tt(null, 'settings.title'),
           locale: NS,
         }, SettingsPage))
+        ctx.effect(() => ctx.sidebarRightTabs.register({
+          id: 'task-progress',
+          kind: 'task-progress',
+          title: () => tt(t, 'tab.title'),
+          keepMounted: true,
+        }), 'dsh-task-progress: node tab type')
+        ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
+          name: 'sidebar.right.pane.tab',
+          key: 'task-progress',
+          locale: NS,
+          inject: sessionId => ({ sessionId }),
+        }, NodePanel))
+        ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({
+          name: 'sidebar.right.pane.tab.title',
+          key: 'task-progress',
+          locale: NS,
+        }, NodeTabTitle))
+        ctx.slots.inject('conversation.chat.assistant-actions', () => ctx.slots.register({
+          name: 'conversation.chat.assistant-actions',
+          id: 'task-progress',
+          locale: NS,
+          inject: sessionId => ({ sessionId }),
+        }, FooterNodeAction))
       },
     }
   },

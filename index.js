@@ -44,7 +44,6 @@ const JUDGE_MAX_TOKENS = 1_200
 const MODEL_FRESH_MS = 180_000
 
 /** An idle turn's rail is dropped this long after it closed. */
-const RAIL_LINGER_MS = 60_000
 
 /** One-line model-facing contract; kept short because it rides every request. */
 const TOOL_DESCRIPTION = [
@@ -351,16 +350,13 @@ export async function apply(ctx, config) {
           continue
         }
         if (state.done) {
-          // The last milestone is completed by the turn end; keep its rail for
-          // the page's completion hold, then let it go.
+          // Close the last node at the turn end and keep the rail: the completed
+          // message footer and the right Sidebar read it after the turn is over.
+          // The next turn's first observation replaces it.
           const rail = rails.get(session.id)
           if (rail !== undefined) {
             const closed = closeRail(rail, state.updatedAt > 0 ? state.updatedAt : Date.now())
-            if (closed.closedAt !== undefined && Date.now() - closed.closedAt > RAIL_LINGER_MS) {
-              rails.delete(session.id)
-            } else if (closed !== rail) {
-              rails.set(session.id, closed)
-            }
+            if (closed !== rail) rails.set(session.id, closed)
           }
           judgements.delete(session.id)
           continue
