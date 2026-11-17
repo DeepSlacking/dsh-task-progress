@@ -1,6 +1,9 @@
 {
-  "name": "dsh-task-progress",
-  "version": "0.5.11",
+  "name": "@deepslacker/dsh-task-progress",
+  "version": "0.5.12",
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "description": "Shows the running task's progress with a node rail, a completed-task glyph, and node cards in the right sidebar, self-assessed by the session's own model at nodes.",
   "exports": {
@@ -10,7 +13,8 @@
     "./icon": "./icon.svg"
   },
   "scripts": {
-    "test": "node --test test/progress.test.mjs test/steps.test.mjs test/client.test.mjs"
+    "test": "node --test test/progress.test.mjs test/steps.test.mjs test/client.test.mjs",
+    "prepublishOnly": "npm test"
   },
   "files": [
     "index.js",

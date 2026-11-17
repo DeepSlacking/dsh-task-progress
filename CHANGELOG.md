@@ -2,6 +2,16 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.5.12] - 2026-11-17
+
+### Changed
+
+- Published as `@deepslacker/dsh-task-progress`. `dsh-task-progress` on npm belongs to an unrelated package, so the plugin now ships under its author's scope; `client.js`'s module id and the `cordis.patch.yml` row name follow the new package name.
+
+### Added
+
+- Registry installs: devices install from npm and the Plugins page offers version updates (`BundleInfo.update === 'registry'`), which a `link:` install never shows.
+
 ## [0.5.11] - 2026-11-17
 
 ### Changed

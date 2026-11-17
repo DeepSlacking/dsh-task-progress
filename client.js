@@ -17,7 +17,7 @@
  * on the Client.
  */
 window.__ModuleLoader__.load({
-  id: 'dsh-task-progress',
+  id: '@deepslacker/dsh-task-progress',
   factory(require) {
     const React = require('react')
     const h = React.createElement

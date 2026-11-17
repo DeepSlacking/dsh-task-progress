@@ -77,25 +77,42 @@ Merge priority: **fresh model self-report (within 3 minutes) > side-channel eval
 
 ## Install
 
-Option 1 (plugin manager):
+Option 1 (npm, recommended — the Plugins page then offers version updates):
+
+```text
+Plugins -> Add plugin -> @deepslacker/dsh-task-progress -> pick a version -> install -> restart DSH
+```
+
+or from the profile directory:
+
+```bash
+cd C:/Users/<you>/.dsh/profiles/desktop
+pnpm add @deepslacker/dsh-task-progress@latest
+```
+
+Option 2 (local directory, for development):
 
 ```text
 plugin_manager action=install_bundle target=D:\DSH-workspace\dsh-task-progress
 ```
 
-Option 2 (manual, in the profile directory):
+Option 3 (manual, in the profile directory):
 
 ```bash
 cd C:/Users/<you>/.dsh/profiles/desktop
 npm install "file:D:/DSH-workspace/dsh-task-progress"
-# then add "dsh-task-progress" to dsh.profile.bundles in package.json,
+# then add "@deepslacker/dsh-task-progress" to dsh.profile.bundles in package.json,
 # and add a row to cordis.patch.yml:
 #   - insert:
 #       - id: task-progress
-#         name: dsh-task-progress
+#         name: @deepslacker/dsh-task-progress
 ```
 
 Restart the DSH desktop app afterwards to load the plugin.
+
+### Update
+
+When the Plugins page shows "N plugin updates available", open this plugin -> version section -> pick the new version -> update, then restart DSH. Only bundles installed from a registry get that notice; a `link:` install never does.
 
 ## Appearance
 

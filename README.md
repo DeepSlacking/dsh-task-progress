@@ -79,25 +79,42 @@ DeepSeek Harness（DSH）插件：在会话里和侧栏上显示「当前任务�
 
 ## 安装
 
-方式一（插件管理器，本地目录）：
+方式一（npm，推荐；装上后插件页会提示新版本）：
+
+```text
+插件 → 添加插件 → 输入 @deepslacker/dsh-task-progress → 选择版本 → 安装 → 重启 DSH
+```
+
+或在 profile 目录用命令行装：
+
+```bash
+cd C:/Users/<you>/.dsh/profiles/desktop
+pnpm add @deepslacker/dsh-task-progress@latest
+```
+
+方式二（本地目录，开发时用）：
 
 ```text
 plugin_manager action=install_bundle target=D:\\DSH-workspace\\dsh-task-progress
 ```
 
-方式二（profile 目录手动安装）：
+方式三（profile 目录手动安装，没有 pnpm 时）：
 
 ```bash
 cd C:/Users/<you>/.dsh/profiles/desktop
 npm install "file:D:/DSH-workspace/dsh-task-progress"
-# 再把 "dsh-task-progress" 加进 package.json 的 dsh.profile.bundles，
+# 再把 "@deepslacker/dsh-task-progress" 加进 package.json 的 dsh.profile.bundles，
 # 并在 cordis.patch.yml 加一行（name 必须与 package.json 的包名一致）：
 #   - insert:
 #       - id: task-progress
-#         name: 'dsh-task-progress'
+#         name: '@deepslacker/dsh-task-progress'
 ```
 
-包名是 `dsh-task-progress`；`cordis.patch.yml` 的 name、`client.js` 里 `__ModuleLoader__.load` 的 id 都必须与它一致。安装后重启 DSH 桌面端加载插件。
+包名是 `@deepslacker/dsh-task-progress`；`cordis.patch.yml` 的 name、`client.js` 里 `__ModuleLoader__.load` 的 id 都必须与它一致。安装后重启 DSH 桌面端加载插件。
+
+### 更新
+
+插件页顶部出现「有 N 个插件可更新」时，打开本插件 → 版本区块 → 选新版本 → 更新，然后重启 DSH。只有从 npm 源安装的组合包会收到这个提示；`link:` 本地目录安装不会。
 
 ## 外观配置
 

@@ -80,7 +80,7 @@
 
 ```yaml
 - id: task-progress
-  name: 'dsh-task-progress'
+  name: '@deepslacker/dsh-task-progress'
   config:
     barHeight: 8
     barColor: '#7c5cff'
