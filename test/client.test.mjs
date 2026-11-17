@@ -196,9 +196,11 @@ async function loadDock(store, sessionState = { byId: {}, projectionsBySession: 
   const Dock = registered['conversation.input.dock']
   const Settings = registered['settings.section']
   const TabPanel = registered['sidebar.right.pane.tab']
+  const SettingsIcon = registered['settings.section.icon']
   assert.ok(Dock, 'dock registered')
   assert.ok(Settings, 'settings registered')
   assert.ok(TabPanel, 'node panel registered')
+  assert.ok(SettingsIcon, 'settings icon registered')
   assert.equal(tabTypes.length, 1)
   assert.equal(tabTypes[0].id, 'task-progress')
   assert.equal(tabTypes[0].kind, 'task-progress')
@@ -222,8 +224,25 @@ async function loadDock(store, sessionState = { byId: {}, projectionsBySession: 
       fake.beginRender()
       return TabPanel({ t: undefined, sessionId })
     },
+    renderSettingsIcon: () => {
+      fake.beginRender()
+      return SettingsIcon({ size: 16, active: true })
+    },
   }
 }
+
+test('the DSH Settings nav icon is the progress glyph', async () => {
+  const { store } = fixture()
+  const { renderSettingsIcon } = await loadDock(store)
+  const tree = renderSettingsIcon()
+  const glyph = tree.type(tree.props)
+  assert.equal(glyph.type, 'svg')
+  assert.equal(glyph.props.viewBox, '0 0 1024 1024')
+  assert.equal(glyph.props.fill, 'currentColor')
+  assert.equal(glyph.props.width, 16)
+  assert.ok(Array.isArray(glyph.props.children))
+  assert.equal(glyph.props.children.length, 2)
+})
 
 test('the settings preview grows on hover and opens a sample node card', async () => {
   const { store } = fixture()

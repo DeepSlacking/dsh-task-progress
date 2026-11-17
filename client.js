@@ -1324,6 +1324,16 @@ window.__ModuleLoader__.load({
       )
     }
 
+    /** The section icon in DSH Settings, addressed by the matching settings.section id. */
+    function SettingsIcon(props) {
+      const size = props !== null && props !== undefined && Number.isFinite(Number(props.size))
+        ? Number(props.size) : 16
+      return h(ProgressGlyph, {
+        size,
+        className: props !== null && props !== undefined ? props.className : undefined,
+      })
+    }
+
     /**
      * The progress glyph in a completed turn's action row. It is shown only
      * after the reply is final, only on the latest turn, and sits after the
@@ -1470,6 +1480,12 @@ window.__ModuleLoader__.load({
           locale: NS,
           inject: sessionId => ({ sessionId }),
         }, FooterNodeAction))
+        ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
+          name: 'settings.section.icon',
+          id: 'task-progress',
+          order: 60,
+          locale: NS,
+        }, SettingsIcon))
       },
     }
   },

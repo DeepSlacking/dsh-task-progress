@@ -50,7 +50,7 @@ Once the reply is final and this is the latest turn, the completed message's act
 - shows every node of `rails[sessionId]` as a card in time order: number, done/in-progress, label, phase, duration and finish time; the header carries the total;
 - the Host keeps the completed turn's rail until the next turn's first observation, and the client marks the last node done as soon as `taskProgress.done` arrives, even before the next Host sweep.
 
-The plugin icon (the one shown under Settings → Plugins) is now the same glyph (`icon.svg`).
+The plugin icon (the one shown under Settings → Plugins) is `icon.svg`; the **Task progress** icon in the Settings navigation is registered through the `settings.section.icon` slot (same id as `settings.section`), so the Settings page shows the same glyph too.
 
 
 
