@@ -1,6 +1,6 @@
 {
   "name": "@deepslacker/dsh-task-progress",
-  "version": "0.5.12",
+  "version": "0.5.13",
   "publishConfig": {
     "access": "public"
   },

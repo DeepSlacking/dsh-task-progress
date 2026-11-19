@@ -619,20 +619,43 @@ window.__ModuleLoader__.load({
           .map((step, index) => ({ step, index }))
           .filter(entry => entry.step !== null && typeof entry.step === 'object')
         const closedEntries = allEntries.filter(entry => entry.step.endedAt > 0)
-        // A completed node beyond the current fill belongs to an earlier, higher
-        // estimate; showing it there would label a future task as already done.
         const currentPercent = known ? Math.max(0, Math.min(100, progress.percent)) : 100
-        const visibleEntries = done
-          ? closedEntries
-          : known
-            ? closedEntries.filter(entry => {
-              const value = Number(entry.step.percent)
-              return !Number.isFinite(value) || value <= currentPercent + 0.5
-            })
-            : []
+        // Every completed node stays on the rail, in completion order. The
+        // evaluator can re-estimate a task downward, so a later node may carry a
+        // lower percentage than an earlier one; positions are therefore made
+        // monotonic (a later node never sits left of an earlier one) and capped
+        // at the fill head (a node from an earlier, higher estimate moves to the
+        // head instead of disappearing). Otherwise the rail can show node 9 as
+        // the last completed node while the badge already counts node 18.
+        const ceiling = done ? 100 : currentPercent
+        const placed = []
+        let floor = 0
+        for (const entry of closedEntries) {
+          const value = Number(entry.step.percent)
+          const raw = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : floor
+          const position = Math.min(ceiling, Math.max(floor, raw))
+          placed.push({ ...entry, position, lifted: raw < position })
+          floor = position
+        }
+        // A run of nodes lifted by a re-estimate keeps its order but spreads into
+        // the space before the next real position, so it does not pile on one dot.
+        for (let start = 0; start < placed.length;) {
+          if (!placed[start].lifted) { start += 1; continue }
+          let end = start
+          while (end + 1 < placed.length && placed[end + 1].lifted && placed[end + 1].position === placed[start].position) {
+            end += 1
+          }
+          const from = placed[start].position
+          const next = end + 1 < placed.length ? placed[end + 1].position : ceiling
+          const count = end - start + 1
+          for (let step = 0; step < count; step += 1) {
+            placed[start + step] = { ...placed[start + step], position: from + ((next - from) * (step + 1)) / (count + 1) }
+          }
+          start = end + 1
+        }
         // The bar is spatial, but node numbers stay chronological so the card and
         // the expanded list agree on which node is which.
-        const closed = [...visibleEntries].sort((left, right) => Number(left.step.percent) - Number(right.step.percent))
+        const closed = placed
         const open = steps.length > 0 && steps[steps.length - 1] !== null && typeof steps[steps.length - 1] === 'object'
           ? { step: steps[steps.length - 1], index: steps.length - 1 }
           : undefined
@@ -658,14 +681,14 @@ window.__ModuleLoader__.load({
         const bucketKey = value => Math.round(Number(value || 0) * 2) / 2
         const buckets = new Map()
         for (const entry of closed) {
-          const key = bucketKey(entry.step.percent)
+          const key = bucketKey(entry.position)
           const bucket = buckets.get(key)
           if (bucket === undefined) buckets.set(key, [entry])
           else bucket.push(entry)
         }
         const currentKey = bucketKey(currentPercent)
         const nodeOffset = entry => {
-          const key = bucketKey(entry.step.percent)
+          const key = bucketKey(entry.position)
           const bucket = buckets.get(key) ?? []
           const rank = bucket.indexOf(entry)
           let offset = (rank - (bucket.length - 1) / 2) * 16
@@ -676,7 +699,7 @@ window.__ModuleLoader__.load({
         const edge = position => (position < 16 ? 'start' : position > 84 ? 'end' : undefined)
         for (const entry of closed) {
           const { step, index } = entry
-          const position = railPosition(step.percent)
+          const position = railPosition(entry.position)
           const label = step.label || ''
           const took = durationText(t, step.durationMs)
           const finished = timeText(step.endedAt)

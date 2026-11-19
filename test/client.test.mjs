@@ -128,7 +128,7 @@ function fixture() {
  * @param store - the polled evaluator/rail store the dock should read.
  * @returns {{ render: () => object }}
  */
-async function loadDock(store, sessionState = { byId: {}, projectionsBySession: {} }) {
+async function loadDock(store, sessionState = { byId: {}, projectionsBySession: {} }, progressOverride) {
   const fake = makeFakeReact()
   globalThis.window = {
     __ModuleLoader__: {
@@ -206,7 +206,8 @@ async function loadDock(store, sessionState = { byId: {}, projectionsBySession: 
   assert.equal(tabTypes[0].kind, 'task-progress')
   fake.reset()
   fake.setExternal(store)
-  const { progress } = fixture()
+  const { progress: fixtureProgress } = fixture()
+  const progress = progressOverride ?? fixtureProgress
   return {
     render: () => {
       fake.beginRender()
@@ -363,7 +364,7 @@ test('hovering a closed milestone shows its label, duration, and finish time', a
   assert.equal(byClass(render(), 'dtp-tip').length, 0)
 })
 
-test('a completed node beyond the current fill is hidden, not marked done', async () => {
+test('a completed node beyond the current fill waits at the fill head instead of vanishing', async () => {
   const { store } = fixture()
   const now = Date.now()
   store.rails['session-1'].steps = [
@@ -382,7 +383,46 @@ test('a completed node beyond the current fill is hidden, not marked done', asyn
   ]
   const { render } = await loadDock(store)
   const nodes = byClass(render(), 'dtp-node')
-  assert.deepEqual(nodes.map(node => node.props.style.left), ['15%', '40%'])
+  // Both completed nodes stay on the rail; the one from the earlier, higher
+  // estimate sits at the fill head instead of being dropped.
+  assert.deepEqual(nodes.map(node => node.props.style.left), ['15%', '40%', '40%'])
+  assert.match(nodes[1].props['aria-label'], /节点 1/)
+  assert.match(nodes[2].props['aria-label'], /节点 2/)
+})
+
+test('a re-estimated turn keeps every node in order and ends on the latest one', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const steps = []
+  for (let i = 0; i < 18; i += 1) {
+    // Node 9 was reported at 45%, then the evaluator re-estimated downward.
+    const percent = i < 10 ? i * 5 : 20 + (i - 10) * 2
+    steps.push({
+      label: '里程碑 ' + i, percent, phase: 'execute',
+      at: now - (40 - i) * 60_000, endedAt: now - (40 - i) * 60_000 + 30_000, durationMs: 30_000,
+    })
+  }
+  steps.push({ label: '当前这一步', percent: 65, phase: 'execute', at: now - 60_000, endedAt: 0, durationMs: 0 })
+  store.rails['session-1'].steps = steps
+  const progress = {
+    ...fixture().progress,
+    percent: 65,
+    milestone: '当前这一步',
+    next: '收尾',
+    updatedAt: now - 30_000,
+  }
+  const { render } = await loadDock(store, { byId: {}, projectionsBySession: {} }, progress)
+  const nodes = byClass(render(), 'dtp-node')
+  assert.equal(nodes.length, 19)
+  const labels = nodes.map(node => node.props['aria-label'])
+  assert.match(labels[17], /节点 17/)
+  assert.match(labels[18], /节点 18/)
+  const lefts = nodes.map(node => Number.parseFloat(node.props.style.left))
+  for (let i = 1; i < lefts.length; i += 1) {
+    assert.ok(lefts[i] >= lefts[i - 1], 'node ' + i + ' sits left of node ' + (i - 1))
+  }
+  assert.equal(lefts[18], 65)
+  assert.ok(lefts[17] < 65 && lefts[17] > 45, 'the last completed node spreads toward the head')
 })
 
 test('the current milestone is an outlined node with its elapsed time and next step', async () => {

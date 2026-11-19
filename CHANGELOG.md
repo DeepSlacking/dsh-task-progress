@@ -2,6 +2,12 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.5.13] - 2026-11-19
+
+### Fixed
+
+- The node rail stays in completion order. A downward re-estimate used to place later nodes left of earlier ones, so the last completed node before the head could be an old one (node 9 while node 18 was current) and a node from an earlier, higher estimate vanished. Every completed node now stays on the rail, positions are monotonic and capped at the fill head, and a run lifted by a re-estimate spreads across the space up to the next node.
+
 ## [0.5.12] - 2026-11-17
 
 ### Changed
