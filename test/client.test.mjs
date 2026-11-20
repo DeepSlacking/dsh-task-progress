@@ -397,7 +397,7 @@ test('a completed node beyond the current fill waits at the fill head instead of
   assert.match(nodes[2].props['aria-label'], /节点 2/)
 })
 
-test('a re-estimated turn keeps every node in order and ends on the latest one', async () => {
+test('a re-estimated turn never moves a later node left of an earlier one', async () => {
   const { store } = fixture()
   const now = Date.now()
   const steps = []
@@ -425,11 +425,39 @@ test('a re-estimated turn keeps every node in order and ends on the latest one',
   assert.match(labels[17], /节点 17/)
   assert.match(labels[18], /节点 18/)
   const lefts = nodes.map(node => Number.parseFloat(node.props.style.left))
+  // The rail must not spread nodes evenly by count: the first ten keep the
+  // percentage recorded when they closed, and the re-estimated run holds after
+  // node 9 instead of jumping left of it.
+  assert.deepEqual(lefts.slice(0, 10), [0, 5, 10, 15, 20, 25, 30, 35, 40, 45])
+  for (let i = 10; i <= 17; i += 1) {
+    assert.ok(lefts[i] > 45 && lefts[i] < 65, 're-estimated node ' + i + ' stays after node 9')
+  }
   for (let i = 1; i < lefts.length; i += 1) {
     assert.ok(lefts[i] >= lefts[i - 1], 'node ' + i + ' sits left of node ' + (i - 1))
   }
   assert.equal(lefts[18], 65)
-  assert.ok(lefts[17] < 65 && lefts[17] > 45, 'the last completed node spreads toward the head')
+})
+
+test('the strip stays hidden until the model answers or calls a tool', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const progress = {
+    ...fixture().progress,
+    turn: 6,
+    percent: -1,
+    source: 'none',
+    modelPercent: -1,
+    milestone: '',
+    next: '',
+    done: false,
+    startedAt: now - 20_000,
+    updatedAt: 0,
+    tools: 0,
+    taskChars: 40,
+    replyChars: 0,
+  }
+  const { render } = await loadDock(store, { byId: {}, projectionsBySession: {} }, progress)
+  assert.equal(render(), null, 'nothing is drawn while the model is still thinking')
 })
 
 test('a simple Q&A shows the quiet note instead of a progress bar', async () => {

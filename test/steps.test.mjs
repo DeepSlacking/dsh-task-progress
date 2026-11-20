@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { blankRail, closeRail, observeRail, RAIL_MAX } from '../lib/steps.js'
+import { blankRail, closeRail, observeRail, railNeedsRescale, rescaleRail, RAIL_MAX } from '../lib/steps.js'
 
 /** Observe one milestone on a rail. */
 function observe(rail, label, percent, phase, at, startedAt = 1_000) {
@@ -81,4 +81,40 @@ test('the rail is bounded to the newest milestones', () => {
   assert.equal(rail.steps.length, RAIL_MAX)
   assert.equal(rail.steps[rail.steps.length - 1].label, `里程碑 ${RAIL_MAX + 4}`)
   assert.ok(rail.steps[0].endedAt > 0)
+})
+
+test('a milestone below the previous one asks for a rescale', () => {
+  let rail = observe(undefined, '定位问题', 20, 'execute', 20_000)
+  rail = observe(rail, '定位问题', 60, 'execute', 30_000)
+  rail = observe(rail, '改客户端', 40, 'execute', 40_000)
+  assert.equal(railNeedsRescale(rail), true)
+  const fixed = rescaleRail(rail, 30)
+  assert.equal(fixed.steps[0].percent, 30, 'the newest closed node maps to the anchor')
+  assert.equal(fixed.steps[1].percent, 40, 'the open node keeps its estimate')
+  assert.equal(railNeedsRescale(fixed), false)
+})
+
+test('the rescale anchor is clamped to the open node', () => {
+  let rail = observe(undefined, 'a', 20, 'execute', 20_000)
+  rail = observe(rail, 'a', 80, 'execute', 30_000)
+  rail = observe(rail, 'b', 50, 'execute', 40_000)
+  const clamped = rescaleRail(rail, 95)
+  assert.equal(clamped.steps[0].percent, 50, 'a closed node cannot pass the open estimate')
+  assert.equal(clamped.steps[1].percent, 50)
+})
+
+test('an equal percentage asks for a rescale, a strict rise does not', () => {
+  let rail = observe(undefined, 'a', 40, 'execute', 20_000)
+  assert.equal(railNeedsRescale(rail), false)
+  rail = observe(rail, 'b', 40, 'execute', 40_000)
+  assert.equal(railNeedsRescale(rail), true, 'newest <= previous triggers the correction')
+  const flat = observe(undefined, 'a', 10, 'plan', 20_000)
+  const rising = observe(flat, 'b', 30, 'execute', 40_000)
+  assert.equal(railNeedsRescale(rising), false)
+})
+
+test('a lone node is left alone', () => {
+  const rail = observe(undefined, 'a', 10, 'plan', 20_000)
+  assert.equal(railNeedsRescale(rail), false)
+  assert.equal(rescaleRail(rail, 20), rail)
 })

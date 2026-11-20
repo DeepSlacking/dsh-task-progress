@@ -40,7 +40,7 @@ Nodes belong to the current turn only and do not record earlier turns:
 - At most **100** nodes are kept per turn; older ones fade off the rail.
 - Nodes are numbered from **0**: the first finished node is "Node 0", with the current node next.
 - Coincident nodes are nudged apart so every one stays hoverable.
-- Completed nodes always stay on the rail. If a later estimate lowers the percentage so the recorded values stop increasing, the rail lays the nodes out evenly in completion order across the filled span (an old node never ends up next to the head); a finished turn stretches the rail to the full 100%.
+- Completed nodes stay on the rail at the percentage recorded when they closed — never spread evenly by node count. When the newest node's percentage does not rise above the previous one (≤), the Host attaches the turn's node list to its next side-channel evaluation and asks the model for the share of the current plan already completed (an anchor); the completed nodes are then rescaled onto it proportionally. Without an anchor the rail falls back to the local monotonic hold, so nodes never invert. Positions stay clamped to the bar and the current fill. The correction costs no extra request: it rides on the existing evaluator call, and only the request that detected a drop carries the node list.
 
 The rail is maintained in the host's evaluator memory (it observes the effective node every 15 seconds), so nodes survive a page reload and reset on the next turn. When a turn ends, the last node is closed at `turn/end` and stays visible briefly.
 
@@ -59,7 +59,7 @@ The list and the rail carry the same completed nodes.
 A turn with no tool call, no `report_progress` call, and short text and duration counts as a **simple task** (defaults: at most 30 seconds, at most 1200 characters combined):
 
 - the Host skips the side-channel evaluator: no evaluation tokens and no node rail;
-- the strip shows one quiet line, `✓ Simple task, no evaluation needed`, once the turn has run longer than 12 seconds (so an ordinary question does not flash it);
+- the strip shows one quiet line, `✓ Simple task, no evaluation needed`, only after the model has started answering (or the turn ends) — a slow first token no longer flashes it before switching to the progress bar;
 - the sidebar ring, the footer glyph and the Nodes page stay hidden;
 - a later tool call switches the turn back to normal progress automatically.
 
@@ -147,9 +147,11 @@ Precedence: **settings page > row config > theme default**. Row config lives in 
     simpleMode: auto
     simpleSeconds: 30
     simpleChars: 1200
+    rescore: auto
+    rescoreIntervalMs: 120000
 ```
 
-Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs`, `simpleMode`, `simpleSeconds`, `simpleChars` (reload the plugin after changing them); appearance can also be set in row config as `barHeight` / `barColor` / `textFontSize` / `listFontSize`. You can also set the CSS variables `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size` / `--dtp-list-font-size`. The section ends with a live preview (one completed node and the current node): hovering the bar grows it, and hovering a node opens its detail card.
+Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs`, `simpleMode`, `simpleSeconds`, `simpleChars`, `rescore`, `rescoreIntervalMs` (reload the plugin after changing them); appearance can also be set in row config as `barHeight` / `barColor` / `textFontSize` / `listFontSize`. You can also set the CSS variables `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size` / `--dtp-list-font-size`. The section ends with a live preview (one completed node and the current node): hovering the bar grows it, and hovering a node opens its detail card.
 
 ## Layout
 

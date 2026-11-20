@@ -5,3 +5,5 @@
         simpleMode: auto
         simpleSeconds: 30
         simpleChars: 1200
+        rescore: auto
+        rescoreIntervalMs: 120000

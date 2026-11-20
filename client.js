@@ -745,15 +745,19 @@ window.__ModuleLoader__.load({
         const known = progress.percent >= 0
         const simple = simpleTurnOf(progress, now, simpleSettings)
         const elapsed = progress.startedAt > 0 ? now - progress.startedAt : 0
+        // Until the model answers or calls a tool there is nothing to classify:
+        // a slow first token must not flash the simple-task line (or a bar) and
+        // then switch. The strip stays hidden during that wait.
+        const awaitingModel = !done && !known && (progress.replyChars ?? 0) === 0 && (progress.tools ?? 0) === 0
         // A long first step (or a long tool batch) has no checkpoint yet: the
         // model is blocked and cannot report. Show that a task is under
         // evaluation instead of leaving the row blank or inventing a number.
-        const evaluating = !simple && !done && !known && progress.startedAt > 0
+        const evaluating = !awaitingModel && !simple && !done && !known && progress.startedAt > 0
           && elapsed >= EVALUATING_AFTER_MS
-        // A simple Q&A gets one quiet line instead of a bar, but only once the
-        // turn has run long enough that the progress strip would have appeared.
-        const showSimple = simple && (done || elapsed >= EVALUATING_AFTER_MS)
-        if (!done && !known && !evaluating && !showSimple) return null
+        // A simple Q&A gets one quiet line instead of a bar, but only once it is
+        // answering (or the turn has ended).
+        const showSimple = !awaitingModel && simple && (done || elapsed >= EVALUATING_AFTER_MS)
+        if (awaitingModel || (!done && !known && !evaluating && !showSimple)) return null
         if (showSimple) {
           return h(
             React.Fragment,
@@ -796,26 +800,36 @@ window.__ModuleLoader__.load({
         const closedEntries = allEntries.filter(entry => entry.step.endedAt > 0)
         const currentPercent = known ? Math.max(0, Math.min(100, progress.percent)) : 100
         const ceiling = done ? 100 : currentPercent
-        // Completion order is fixed; the x axis is not. A re-estimate can name a
-        // lower percentage than an earlier node, so when the raw sequence is out
-        // of order the rail lays every node out evenly across the completed
-        // span: the order stays truthful and no old node can end up next to the
-        // head (node 9 beside node 18). An ordered sequence keeps its own
-        // spacing, and a finished turn stretches to the full 100% fill.
-        const raws = closedEntries.map(entry => {
+        // A node's x is the percentage it was recorded at when its step was
+        // superseded — never an even slice of the rail by node count. A
+        // downward re-estimate must not push a later node left of an earlier
+        // one (that is the old "node 9 next to the head" symptom), so those
+        // nodes hold the highest percentage seen so far and spread toward the
+        // next node. Positions stay clamped to the bar and the fill head.
+        const placed = []
+        let floor = 0
+        for (const entry of closedEntries) {
           const value = Number(entry.step.percent)
-          return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0
-        })
-        const ordered = raws.every((value, index) => index === 0 || value >= raws[index - 1])
-        let positions = raws
-        if (!ordered) {
-          const span = done ? Math.max(1, raws.length) : raws.length + 1
-          positions = raws.map((_, index) => (ceiling * (index + 1)) / span)
-        } else {
-          positions = raws.map(value => Math.min(ceiling, value))
-          const last = positions.length > 0 ? positions[positions.length - 1] : 0
-          if (done && last > 0) positions = positions.map(value => Math.min(100, (value * 100) / last))
+          const raw = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : floor
+          const position = Math.min(ceiling, Math.max(floor, raw))
+          placed.push({ ...entry, position, held: raw < position })
+          floor = position
         }
+        for (let start = 0; start < placed.length;) {
+          if (!placed[start].held) { start += 1; continue }
+          let end = start
+          while (end + 1 < placed.length && placed[end + 1].held && placed[end + 1].position === placed[start].position) {
+            end += 1
+          }
+          const from = placed[start].position
+          const next = end + 1 < placed.length ? placed[end + 1].position : ceiling
+          const count = end - start + 1
+          for (let step = 0; step < count; step += 1) {
+            placed[start + step] = { ...placed[start + step], position: from + ((next - from) * (step + 1)) / (count + 1) }
+          }
+          start = end + 1
+        }
+        const positions = placed.map(entry => entry.position)
         // The bar is spatial, but node numbers stay chronological so the card and
         // the expanded list agree on which node is which.
         const closed = closedEntries.map((entry, index) => ({ ...entry, position: positions[index] }))

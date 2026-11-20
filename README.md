@@ -40,7 +40,7 @@ DeepSeek Harness（DSH）插件：在会话里和侧栏上显示「当前任务�
 - 本轮最多保留最近 **100 个**节点，更早的从轨道上淡出。
 - 节点编号从 **0** 开始：第一个完成的节点是「节点 0」，当前节点排在其后。
 - 同一位置附近有多个节点时会左右错开，保证每一个都能悬停查看。
-- 节点位置取该节点最后一次被看到时的百分比。已完成节点一律保留在轨道上；如果评估把百分比下调、记录的百分比不再递增，轨道改用等距布局按完成顺序铺满当前填充段，不会出现「旧节点紧挨当前节点」的情况；整轮结束时轨道会铺满 100%。
+- 节点位置取该节点最后一次被看到时的百分比，不按节点数量均分。出现「新节点的百分比不高于上一节点（≤）」时，宿主会在下一次旁路评估里附上本轮节点列表，请模型给出「已完成部分占当前计划的百分比（anchor）」，再把历史节点按比例缩放到这个锚点；没拿到锚点时退回本地保护（后完成的节点停在上一个节点之后并铺开），因此节点永远不会反向排列。所有已完成节点都保留在轨道上，位置只限制在进度条和当前填充范围内。位置修正不会额外发起请求：它复用既有的旁路评估调用，只有检测到回调的那一次请求会带上节点列表并稍微变大。
 
 轨道由宿主在旁路评估器的内存里维护（每 15 秒观察一次有效节点），刷新页面后节点仍在；换到下一轮时自动清空。一轮结束时最后一个节点会在 `turn/end` 处收尾，并短暂保留。
 
@@ -71,7 +71,7 @@ DeepSeek Harness（DSH）插件：在会话里和侧栏上显示「当前任务�
 没有工具调用、模型也没有调用 `report_progress`、且用户消息与最终回复都很短的轮次会被判定为**简单任务**（默认：用时 ≤ 30 秒、字符合计 ≤ 1200）：
 
 - 宿主跳过旁路评估器，不消耗评估 token，也不建节点轨道；
-- 输入框上方只显示一行小字 `✓ 简单任务，无需评估`（运行超过 12 秒后才出现，避免每次提问都闪一下）；
+- 输入框上方只显示一行小字 `✓ 简单任务，无需评估`；只有模型已经开始回复（或本轮结束）后才会出现——首 token 慢的时候不会先闪一下「简单任务」再切回进度条；
 - 会话行圆环、回复底部节点图标、右侧节点页都不显示；
 - 之后一旦出现工具调用，自动切回普通进度模式。
 
@@ -149,9 +149,11 @@ npm install "file:D:/DSH-workspace/dsh-task-progress"
     simpleMode: auto
     simpleSeconds: 30
     simpleChars: 1200
+    rescore: auto
+    rescoreIntervalMs: 120000
 ```
 
-其余字段：`enableTool`、`minStep`、`todoBaseline`、`judge`、`judgeIntervalMs`、`simpleMode`、`simpleSeconds`、`simpleChars`（改完需在「插件」里重载）；外观也可在行配置里写 `barHeight` / `barColor` / `textFontSize` / `listFontSize`。也可直接设 CSS 变量 `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size` / `--dtp-list-font-size`。设置页底部有实时预览（一个完成节点和一个当前节点）：预览条悬停会放大，移入节点会弹出详情卡。
+其余字段：`enableTool`、`minStep`、`todoBaseline`、`judge`、`judgeIntervalMs`、`simpleMode`、`simpleSeconds`、`simpleChars`、`rescore`、`rescoreIntervalMs`（改完需在「插件」里重载）；外观也可在行配置里写 `barHeight` / `barColor` / `textFontSize` / `listFontSize`。也可直接设 CSS 变量 `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size` / `--dtp-list-font-size`。设置页底部有实时预览（一个完成节点和一个当前节点）：预览条悬停会放大，移入节点会弹出详情卡。
 
 ## 目录
 

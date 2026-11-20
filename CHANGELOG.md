@@ -2,6 +2,20 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.6.1] - 2026-11-21
+
+### Added
+
+- Hybrid history rescale for the node rail. When the newest milestone's percentage does not rise above the previous one, the Host attaches the turn's node list to its next side-channel evaluation and asks the model for an `anchor` — the share of the revised plan the completed work represents — then proportionally rescales the completed nodes onto it. The ordinary evaluator call is unchanged; only a rescale request carries the extra list, and attempts are rate-limited (`rescore: auto|off`, `rescoreIntervalMs`, default 120s). Without an anchor the rail keeps the local monotonic hold.
+
+### Changed
+
+- Nodes sit at the percentage recorded when their step closed instead of being spread evenly across the rail by node count. When a re-estimate lowers the percentage, the affected nodes hold the highest percentage seen so far and spread toward the next node, so a later node never sits left of an earlier one (the old "node 9 next to the head" symptom cannot return). Positions stay clamped to the bar and the fill head, and a finished turn no longer stretches the rail to 100%.
+
+### Fixed
+
+- The simple-task line no longer flashes at the start of a turn: while the model has not answered yet and has not called a tool, the strip stays hidden instead of showing `✓ 简单任务，无需评估` and then switching to a progress bar when the first token is slow.
+
 ## [0.6.0] - 2026-11-20
 
 ### Added

@@ -21,7 +21,7 @@
 
 import { applyProgress, BLANK, isSimpleTurn, PHASES, progressSchema, shouldOfferProgressTool } from './lib/progress.js'
 import { buildDigest, buildJudgeInput, JUDGE_SYSTEM, parseJudgement } from './lib/judge.js'
-import { closeRail, observeRail } from './lib/steps.js'
+import { closeRail, observeRail, railNeedsRescale, rescaleRail } from './lib/steps.js'
 import { readFileSync } from 'node:fs'
 
 export const name = 'dsh-task-progress'
@@ -182,6 +182,11 @@ export async function apply(ctx, config) {
       seconds: clampInt(config?.simpleSeconds, 1, 3600, 30),
       chars: clampInt(config?.simpleChars, 0, 100_000, 1200),
     },
+    // History rescale: when a milestone's percent falls below the previous one,
+    // ask the evaluator for an anchor that maps completed work onto the revised
+    // plan, then proportionally rescale the closed nodes.
+    rescore: config?.rescore !== 'off',
+    rescoreIntervalMs: clampInt(config?.rescoreIntervalMs, 15_000, 3_600_000, 120_000),
     // Presentation knobs for the composer strip. 0 / '' means "inherit the
     // theme", so the defaults below never overwrite a host or user CSS value.
     style: {
@@ -266,12 +271,37 @@ export async function apply(ctx, config) {
   const rails = new Map()
   const inFlight = new Set()
   const lastCallAt = new Map()
+  // Sessions whose newest milestone fell below the previous one, and the last
+  // time a rescale was attempted (attempts are rate-limited, not just successes).
+  const pendingRescore = new Set()
+  const lastRescoreAt = new Map()
+  // The newest pair asked about, so an unchanged (e.g. equal) pair is not asked
+  // again until a new node or a new estimate changes the question.
+  const lastRescoreKey = new Map()
+  const rescoreKey = rail => {
+    if (rail === null || rail === undefined || !Array.isArray(rail.steps) || rail.steps.length < 2) return ''
+    const last = rail.steps[rail.steps.length - 1]
+    const prev = rail.steps[rail.steps.length - 2]
+    return String(rail.turn) + ':' + rail.steps.length + ':' + String(last?.percent) + ':' + String(prev?.percent)
+  }
   let failures = 0
   let lastFailureAt = 0
 
   ctx.inject(['sessions', 'llm'], (child) => {
     const sessions = child.sessions
     const llm = child.llm
+
+    /** The compact node list a rescale request asks the evaluator to anchor. */
+    const rescoreNodes = rail => {
+      if (rail === null || rail === undefined || !Array.isArray(rail.steps) || rail.steps.length === 0) return []
+      const base = Math.max(0, rail.steps.length - 16)
+      return rail.steps.slice(base).map((step, index) => ({
+        i: base + index,
+        p: Math.round(Number(step.percent) || 0),
+        done: step.endedAt > 0,
+        label: typeof step.label === 'string' ? step.label.slice(0, 40) : '',
+      }))
+    }
 
     /** Ask the session's own model route for one estimate. */
     const judge = async (session, state) => {
@@ -280,6 +310,16 @@ export async function apply(ctx, config) {
       if (digest === null) return
       const route = routeOf(events)
       if (route === undefined) return
+      // A pending rescale rides on the same call: only that request carries the
+      // node list, so the ordinary estimate keeps its size.
+      const rescore = pendingRescore.has(session.id)
+      const nodes = rescore ? rescoreNodes(rails.get(session.id)) : undefined
+      if (rescore) {
+        // Rate-limit attempts, not just successes: a malformed answer must not
+        // turn every sweep into another evaluator call.
+        pendingRescore.delete(session.id)
+        lastRescoreAt.set(session.id, Date.now())
+      }
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), JUDGE_TIMEOUT_MS)
       try {
@@ -299,7 +339,7 @@ export async function apply(ctx, config) {
         let text = ''
         const options = {
           ...call.config,
-          messages: [{ role: 'user', content: [{ type: 'text', text: buildJudgeInput(digest) }] }],
+          messages: [{ role: 'user', content: [{ type: 'text', text: buildJudgeInput(digest, nodes) }] }],
           system: JUDGE_SYSTEM,
           sessionId: session.id,
           signal: controller.signal,
@@ -315,6 +355,16 @@ export async function apply(ctx, config) {
         const judgement = parseJudgement(text)
         if (judgement === null) return
         judgements.set(session.id, { turn: state.turn, ...judgement, at: Date.now() })
+        // The anchor maps the completed history onto the revised estimate. The
+        // open node is untouched, so the rail's last pair stops inverting.
+        if (nodes !== undefined && nodes.length > 0
+          && judgement.anchor !== null && judgement.anchor !== undefined) {
+          const rail = rails.get(session.id)
+          if (rail !== undefined && rail.turn === state.turn) {
+            rails.set(session.id, rescaleRail(rail, judgement.anchor))
+          }
+        }
+        if (nodes !== undefined) lastRescoreKey.set(session.id, rescoreKey(rails.get(session.id)))
         failures = 0
       } finally {
         clearTimeout(timer)
@@ -368,6 +418,7 @@ export async function apply(ctx, config) {
         if (state === undefined || state === null || state.turn <= 0) {
           judgements.delete(session.id)
           rails.delete(session.id)
+          pendingRescore.delete(session.id)
           continue
         }
         if (state.done) {
@@ -380,6 +431,7 @@ export async function apply(ctx, config) {
             if (closed !== rail) rails.set(session.id, closed)
           }
           judgements.delete(session.id)
+          pendingRescore.delete(session.id)
           continue
         }
         const now = Date.now()
@@ -388,14 +440,17 @@ export async function apply(ctx, config) {
         if (isSimpleTurn(state, now, settings.simple)) {
           judgements.delete(session.id)
           rails.delete(session.id)
+          pendingRescore.delete(session.id)
           continue
         }
         // A fresh checkpoint from the working model is better than a second
-        // opinion, and skipping here is what keeps the evaluator cheap.
+        // opinion, and skipping here is what keeps the evaluator cheap. A
+        // pending rescale bypasses both gates: it is a one-off correction.
         const modelFresh = state.source === 'model' && now - state.updatedAt < settings.judgeIntervalMs
-        if (!modelFresh
-          && now - (lastCallAt.get(session.id) ?? 0) >= settings.judgeIntervalMs
-          && !inFlight.has(session.id)) {
+        const wantsRescore = pendingRescore.has(session.id)
+        if (!inFlight.has(session.id)
+          && (wantsRescore
+            || (!modelFresh && now - (lastCallAt.get(session.id) ?? 0) >= settings.judgeIntervalMs))) {
           inFlight.add(session.id)
           lastCallAt.set(session.id, now)
           try {
@@ -410,9 +465,24 @@ export async function apply(ctx, config) {
         // The rail follows whatever the page is showing, so a model report and
         // a judge estimate both become completed nodes.
         observe(session.id, state, Date.now())
+        // Compare the newest milestone with the one before it: a drop asks for
+        // the history rescale, rate-limited per session.
+        if (settings.rescore) {
+          const rail = rails.get(session.id)
+          const nowRescore = Date.now()
+          if (railNeedsRescale(rail)
+            && !pendingRescore.has(session.id)
+            && lastRescoreKey.get(session.id) !== rescoreKey(rail)
+            && nowRescore - (lastRescoreAt.get(session.id) ?? 0) >= settings.rescoreIntervalMs) {
+            pendingRescore.add(session.id)
+          }
+        }
       }
       for (const id of judgements.keys()) if (!liveIds.has(id)) judgements.delete(id)
       for (const id of rails.keys()) if (!liveIds.has(id)) rails.delete(id)
+      for (const id of pendingRescore) if (!liveIds.has(id)) pendingRescore.delete(id)
+      for (const id of lastRescoreAt.keys()) if (!liveIds.has(id)) lastRescoreAt.delete(id)
+      for (const id of lastRescoreKey.keys()) if (!liveIds.has(id)) lastRescoreKey.delete(id)
     }
 
     child.effect(() => {

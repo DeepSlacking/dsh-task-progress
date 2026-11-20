@@ -8,7 +8,7 @@ import {
   normalizeReport,
   progressSchema,
 } from '../lib/progress.js'
-import { buildDigest, JUDGE_SYSTEM, parseJudgement } from '../lib/judge.js'
+import { buildDigest, buildJudgeInput, JUDGE_SYSTEM, parseJudgement } from '../lib/judge.js'
 
 /** One turn/start event. */
 function turnStart(turn, time) {
@@ -169,6 +169,20 @@ test('digest is null before the new turn has any work', () => {
   assert.equal(buildDigest(events, 2), null)
 })
 
+test('the evaluator can return the optional history anchor', () => {
+  const parsed = parseJudgement('{"percent":55,"phase":"verify","milestone":"m","next":"n","eta_min":7,"anchor":30}')
+  assert.equal(parsed.anchor, 30)
+  assert.equal(parseJudgement('{"percent":55}').anchor, null)
+  assert.equal(parseJudgement('{"percent":55,"anchor":120}').anchor, 100, 'an out-of-range anchor is clamped')
+})
+
+test('a rescale request carries the node list only when asked', () => {
+  const digest = { task: 'x' }
+  const nodes = [{ i: 0, p: 10, done: true, label: 'a' }]
+  assert.equal(buildJudgeInput(digest), JSON.stringify(digest))
+  assert.equal(JSON.parse(buildJudgeInput(digest, nodes)).nodes[0].label, 'a')
+})
+
 test('judge output parsing rejects unusable estimates', () => {
   assert.deepEqual(parseJudgement('{"percent":55,"phase":"verify","milestone":"m","next":"n","eta_min":7}'), {
     percent: 55,
@@ -176,6 +190,7 @@ test('judge output parsing rejects unusable estimates', () => {
     milestone: 'm',
     next: 'n',
     etaMin: 7,
+    anchor: null,
   })
   assert.equal(parseJudgement('{"percent":120}'), null)
   assert.equal(parseJudgement('no json here'), null)
