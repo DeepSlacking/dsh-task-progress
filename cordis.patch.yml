@@ -1,3 +1,7 @@
 - insert:
     - id: task-progress
       name: '@deepslacker/dsh-task-progress'
+      config:
+        simpleMode: auto
+        simpleSeconds: 30
+        simpleChars: 1200

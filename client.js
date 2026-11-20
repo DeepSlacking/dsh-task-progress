@@ -22,6 +22,35 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
 
+    // Harness primitives are optional here: the module is injected by the Host
+    // when the package declares it, and a plain shell may not have it, so the
+    // plugin degrades to the caller-provided title instead of failing to load.
+    const primitives = (() => {
+      try {
+        return require('@deepseek-ai/dsh-client-ui-primitives')
+      } catch {
+        return null
+      }
+    })()
+    const DshTooltip = primitives !== null && primitives !== undefined
+      && typeof primitives.Tooltip === 'function' ? primitives.Tooltip : null
+    const DshSwitch = primitives !== null && primitives !== undefined
+      && typeof primitives.Switch === 'function' ? primitives.Switch : null
+
+    /** Wrap one anchor with the Harness' own tooltip when it is available. */
+    function withTooltip(label, anchor, side = 'top') {
+      if (DshTooltip !== null) {
+        if (typeof label !== 'string' || label === '') return anchor
+        return h(DshTooltip, { label, side, portal: true }, anchor)
+      }
+      // A shell without the primitives still gets a hover hint.
+      if (typeof label === 'string' && label !== '' && anchor !== null && typeof anchor === 'object'
+        && typeof React.cloneElement === 'function') {
+        return React.cloneElement(anchor, { title: label })
+      }
+      return anchor
+    }
+
     const NS = 'task-progress'
     /** A task is "stale" after this long without a new checkpoint while running. */
     const STALE_MS = 90_000
@@ -89,6 +118,16 @@ window.__ModuleLoader__.load({
         'settings.preview.live': '预览：正在调整外观',
         'settings.preview.next': '检查节点详情卡',
         'settings.reset': '恢复默认',
+        'simple.note': '简单任务，无需评估',
+        'settings.simple': '简单任务模式',
+        'settings.simple.desc': '没有工具调用、没有节点上报，且用时与字数都在下面阈值内时，不调用评估器、不显示进度。',
+        'settings.simple.enabled': '启用简单任务检测',
+        'settings.simple.seconds': '最长用时',
+        'settings.simple.seconds.desc': '本轮超过这个秒数就不再按简单任务处理。',
+        'settings.simple.chars': '最长字符数',
+        'settings.simple.chars.desc': '用户消息与最终回复的字符数合计上限。',
+        'settings.simple.unit.sec': '秒',
+        'settings.simple.unit.chars': '字',
       },
       en: {
         'phase.plan': 'Planning',
@@ -142,6 +181,16 @@ window.__ModuleLoader__.load({
         'settings.preview.live': 'Preview: tuning the appearance',
         'settings.preview.next': 'Check the node card',
         'settings.reset': 'Reset to defaults',
+        'simple.note': 'Simple task, no evaluation needed',
+        'settings.simple': 'Simple task mode',
+        'settings.simple.desc': 'A turn with no tool call, no node report, and short duration and text is neither evaluated nor shown as progress.',
+        'settings.simple.enabled': 'Detect simple tasks',
+        'settings.simple.seconds': 'Max duration',
+        'settings.simple.seconds.desc': 'Turns longer than this are no longer treated as simple.',
+        'settings.simple.chars': 'Max characters',
+        'settings.simple.chars.desc': 'Upper bound on the user message plus the final reply characters.',
+        'settings.simple.unit.sec': 's',
+        'settings.simple.unit.chars': 'chars',
       },
     }
 
@@ -212,13 +261,18 @@ window.__ModuleLoader__.load({
       // negative margins keep the row's layout height unchanged while the
       // track grows vertically on hover.
       '.dtp-bar{position:relative;flex:1 1 auto;min-width:0;display:flex;align-items:center;',
-      'padding-block:7px;margin-block:-7px;}',
+      'padding-block:7px;margin-block:-7px;transform-origin:center;',
+      'transition:transform .22s cubic-bezier(.2,.7,.3,1);}',
       '.dtp-track{position:relative;flex:1 1 auto;min-width:0;width:100%;height:var(--dtp-bar-height,6px);',
       'border-radius:999px;background:var(--dsw-alias-interactive-bg-hover);overflow:hidden;',
-      'transform-origin:center;transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s ease;}',
-      '.dtp-bar:hover .dtp-track{transform:scaleY(1.9);',
-      'box-shadow:0 0 0 1px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 22%,transparent),',
-      '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 55%,transparent);}',
+      'transform-origin:center;transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s ease;}',
+      // Hover: the whole bar grows a touch, the track grows less than it used to,
+      // and a white glow plus a soft top highlight give the pill some material.
+      '.dtp-bar:hover{transform:scale(1.015);z-index:1;}',
+      '.dtp-bar:hover .dtp-track{transform:scaleY(1.5);',
+      'box-shadow:0 0 0 2px rgba(255,255,255,.55),0 6px 20px -6px rgba(255,255,255,.9),',
+      'inset 0 1px 0 rgba(255,255,255,.6),',
+      '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 40%,transparent);}',
       '.dtp-fill{position:absolute;inset-block:0;inset-inline-start:0;border-radius:999px;',
       'background:var(--dtp-bar-color,var(--dsw-alias-state-business-primary));transition:width .45s ease;}',
       '.dtp-dock[data-stale] .dtp-fill{animation:dtp-pulse 1.6s ease-in-out infinite;}',
@@ -263,6 +317,9 @@ window.__ModuleLoader__.load({
       '.dtp-tip-meta{font-size:11px;line-height:1.45;color:var(--dsw-alias-label-secondary);',
       'font-variant-numeric:tabular-nums;}',
       '.dtp-pct{flex:none;color:var(--dsw-alias-label-primary);font-variant-numeric:tabular-nums;}',
+      '.dtp-simple{display:flex;align-items:center;gap:6px;font-size:var(--dtp-font-size,12px);',
+      'line-height:1.45;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-simple-check{color:var(--dsw-alias-state-success-primary,#16a34a);font-weight:600;}',
       '.dtp-phase{flex:none;padding:0 7px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;',
       'font-size:calc(var(--dtp-font-size,12px) - 1px);line-height:1.35;color:var(--dsw-alias-label-tertiary);}',
       '.dtp-text{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
@@ -300,7 +357,7 @@ window.__ModuleLoader__.load({
       '@keyframes dtp-pulse{0%,100%{opacity:1}50%{opacity:.5}}',
       '@keyframes dtp-slide{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}',
       '@media (prefers-reduced-motion:reduce){',
-      '.dtp-track,.dtp-node-dot{transition:none}',
+      '.dtp-bar,.dtp-track,.dtp-node-dot,.dtp-set-preview-bar,.dtp-set-track{transition:none}',
       '.dtp-dock[data-stale] .dtp-fill,.dtp-dock[data-evaluating] .dtp-fill,.dtp-scan{animation:none}}',
     ].join('')
 
@@ -385,7 +442,7 @@ window.__ModuleLoader__.load({
      * page is visible.
      */
     function createJudgementStore(url) {
-      let snapshot = { sessions: {}, rails: {}, style: null }
+      let snapshot = { sessions: {}, rails: {}, style: null, version: '' }
       let timer = null
       let inFlight = false
       const listeners = new Set()
@@ -404,7 +461,8 @@ window.__ModuleLoader__.load({
           const sessions = value.sessions !== null && typeof value.sessions === 'object' ? value.sessions : {}
           const rails = value.rails !== null && typeof value.rails === 'object' ? value.rails : {}
           const style = value.style !== null && typeof value.style === 'object' ? value.style : null
-          const next = { sessions, rails, style }
+          const version = typeof value.version === 'string' ? value.version : ''
+          const next = { sessions, rails, style, version }
           if (JSON.stringify(next) === JSON.stringify(snapshot)) return
           snapshot = next
           emit()
@@ -521,6 +579,105 @@ window.__ModuleLoader__.load({
       }
     }
 
+    /** Defaults and storage for the simple-task rule. */
+    const SIMPLE_DEFAULTS = Object.freeze({ mode: 'auto', seconds: 30, chars: 1200 })
+    /** localStorage key of the simple-task overrides. */
+    const SIMPLE_KEY = 'dsh-task-progress.simple.v1'
+    /** Host route that carries these thresholds to the evaluator sweep. */
+    const SIMPLE_ROUTE = '/api/dsh-task-progress/settings'
+
+    /** Read the saved simple-task thresholds, discarding anything unusable. */
+    function readSimpleSettings() {
+      const fallback = { ...SIMPLE_DEFAULTS }
+      try {
+        const raw = window.localStorage.getItem(SIMPLE_KEY)
+        if (raw === null || raw === undefined || raw === '') return fallback
+        const parsed = JSON.parse(raw)
+        if (parsed === null || typeof parsed !== 'object') return fallback
+        const seconds = Number(parsed.seconds)
+        const chars = Number(parsed.chars)
+        return {
+          mode: parsed.mode === 'off' ? 'off' : 'auto',
+          seconds: Number.isFinite(seconds) && seconds > 0 ? Math.min(3600, Math.round(seconds)) : fallback.seconds,
+          chars: Number.isFinite(chars) && chars >= 0 ? Math.min(100_000, Math.round(chars)) : fallback.chars,
+        }
+      } catch {
+        return fallback
+      }
+    }
+
+    /** Hand the thresholds to the Host so its sweep skips the evaluator. */
+    function syncSimpleSettings(settings) {
+      try {
+        fetch(SIMPLE_ROUTE, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ mode: settings.mode, seconds: settings.seconds, chars: settings.chars }),
+        }).catch(() => {})
+      } catch {
+        // The Host keeps its configured defaults when the route is unreachable.
+      }
+    }
+
+    /** Observable store of the simple-task rule edited in Settings. */
+    function createSimpleStore() {
+      let snapshot = readSimpleSettings()
+      const listeners = new Set()
+      const emit = () => { for (const listener of listeners) listener() }
+      const persist = () => {
+        try {
+          window.localStorage.setItem(SIMPLE_KEY, JSON.stringify(snapshot))
+        } catch {
+          // Storage can be blocked; the in-memory value still applies.
+        }
+      }
+      return {
+        getSnapshot: () => snapshot,
+        subscribe(listener) {
+          listeners.add(listener)
+          return () => { listeners.delete(listener) }
+        },
+        set(patch) {
+          snapshot = { ...snapshot, ...patch }
+          persist()
+          syncSimpleSettings(snapshot)
+          emit()
+        },
+        reset() {
+          snapshot = { ...SIMPLE_DEFAULTS }
+          persist()
+          syncSimpleSettings(snapshot)
+          emit()
+        },
+        overridden() {
+          try {
+            const raw = window.localStorage.getItem(SIMPLE_KEY)
+            return raw !== null && raw !== undefined && raw !== ''
+          } catch {
+            return false
+          }
+        },
+      }
+    }
+
+    /** Whether a turn reads as a simple question (mirror of the Host rule). */
+    function simpleTurnOf(progress, now, settings) {
+      if (progress === undefined || progress === null || progress.turn <= 0) return false
+      if (settings === null || settings === undefined || settings.mode === 'off') return false
+      if (progress.modelPercent >= 0) return false
+      if ((progress.tools ?? 0) > 0) return false
+      const chars = (progress.taskChars ?? 0) + (progress.replyChars ?? 0)
+      if (chars > (settings.chars ?? 1200)) return false
+      if (!(progress.startedAt > 0)) return false
+      const seconds = Number(settings.seconds ?? 30)
+      if (!(seconds > 0)) return false
+      const enteredAt = progress.done === true
+        ? (progress.updatedAt > 0 ? progress.updatedAt : now)
+        : now
+      const elapsed = enteredAt - progress.startedAt
+      return elapsed >= 0 && elapsed <= seconds * 1000
+    }
+
     /**
      * Overlay the evaluator's estimate on the projection value.
      * @param progress - the session's `taskProgress` projection value.
@@ -556,7 +713,7 @@ window.__ModuleLoader__.load({
      * @param useJudgements - hook over the evaluator/rail store.
      * @param useStyle - hook over the appearance overrides.
      */
-    function makeProgressDock(useJudgements, useStyle) {
+    function makeProgressDock(useJudgements, useStyle, useSimple) {
       return function ProgressDock(props) {
         const t = props.t
         const raw = props.useProjection('taskProgress')
@@ -565,6 +722,7 @@ window.__ModuleLoader__.load({
         // hidden and becomes visible later, so a hook added below a `return`
         // would change the hook count between renders and crash the slot.
         const local = useStyle()
+        const simpleSettings = useSimple()
         const [hovered, setHovered] = React.useState(null)
         const [listOpen, setListOpen] = React.useState(false)
         const entries = store !== null && store !== undefined && store.sessions !== null && store.sessions !== undefined
@@ -585,17 +743,34 @@ window.__ModuleLoader__.load({
         if (!visible || progress === undefined || progress === null || progress.turn === 0) return null
         const done = progress.done === true
         const known = progress.percent >= 0
+        const simple = simpleTurnOf(progress, now, simpleSettings)
+        const elapsed = progress.startedAt > 0 ? now - progress.startedAt : 0
         // A long first step (or a long tool batch) has no checkpoint yet: the
         // model is blocked and cannot report. Show that a task is under
         // evaluation instead of leaving the row blank or inventing a number.
-        const evaluating = !done && !known && progress.startedAt > 0
-          && now - progress.startedAt >= EVALUATING_AFTER_MS
-        if (!done && !known && !evaluating) return null
+        const evaluating = !simple && !done && !known && progress.startedAt > 0
+          && elapsed >= EVALUATING_AFTER_MS
+        // A simple Q&A gets one quiet line instead of a bar, but only once the
+        // turn has run long enough that the progress strip would have appeared.
+        const showSimple = simple && (done || elapsed >= EVALUATING_AFTER_MS)
+        if (!done && !known && !evaluating && !showSimple) return null
+        if (showSimple) {
+          return h(
+            React.Fragment,
+            null,
+            h('style', { key: 'dtp-style' }, DOCK_CSS),
+            h(
+              'div',
+              { className: 'dtp-dock dtp-simple' },
+              h('span', { className: 'dtp-simple-check', 'aria-hidden': 'true' }, '✓'),
+              h('span', { className: 'dtp-simple-text' }, tt(t, 'simple.note')),
+            ),
+          )
+        }
         const percent = done ? 100 : known ? progress.percent : 0
         const stale = running && !done && known && progress.updatedAt > 0 && now - progress.updatedAt > STALE_MS
         const phase = done ? tt(t, 'done') : known ? tt(t, `phase.${progress.phase}`) : tt(t, 'progress.evaluating')
         const next = progress.next || ''
-        const elapsed = progress.startedAt > 0 ? now - progress.startedAt : 0
         const detailParts = []
         if (progress.milestone !== '') detailParts.push(progress.milestone)
         if (next !== '') detailParts.push(tt(t, 'progress.next', { x: next }))
@@ -620,42 +795,30 @@ window.__ModuleLoader__.load({
           .filter(entry => entry.step !== null && typeof entry.step === 'object')
         const closedEntries = allEntries.filter(entry => entry.step.endedAt > 0)
         const currentPercent = known ? Math.max(0, Math.min(100, progress.percent)) : 100
-        // Every completed node stays on the rail, in completion order. The
-        // evaluator can re-estimate a task downward, so a later node may carry a
-        // lower percentage than an earlier one; positions are therefore made
-        // monotonic (a later node never sits left of an earlier one) and capped
-        // at the fill head (a node from an earlier, higher estimate moves to the
-        // head instead of disappearing). Otherwise the rail can show node 9 as
-        // the last completed node while the badge already counts node 18.
         const ceiling = done ? 100 : currentPercent
-        const placed = []
-        let floor = 0
-        for (const entry of closedEntries) {
+        // Completion order is fixed; the x axis is not. A re-estimate can name a
+        // lower percentage than an earlier node, so when the raw sequence is out
+        // of order the rail lays every node out evenly across the completed
+        // span: the order stays truthful and no old node can end up next to the
+        // head (node 9 beside node 18). An ordered sequence keeps its own
+        // spacing, and a finished turn stretches to the full 100% fill.
+        const raws = closedEntries.map(entry => {
           const value = Number(entry.step.percent)
-          const raw = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : floor
-          const position = Math.min(ceiling, Math.max(floor, raw))
-          placed.push({ ...entry, position, lifted: raw < position })
-          floor = position
-        }
-        // A run of nodes lifted by a re-estimate keeps its order but spreads into
-        // the space before the next real position, so it does not pile on one dot.
-        for (let start = 0; start < placed.length;) {
-          if (!placed[start].lifted) { start += 1; continue }
-          let end = start
-          while (end + 1 < placed.length && placed[end + 1].lifted && placed[end + 1].position === placed[start].position) {
-            end += 1
-          }
-          const from = placed[start].position
-          const next = end + 1 < placed.length ? placed[end + 1].position : ceiling
-          const count = end - start + 1
-          for (let step = 0; step < count; step += 1) {
-            placed[start + step] = { ...placed[start + step], position: from + ((next - from) * (step + 1)) / (count + 1) }
-          }
-          start = end + 1
+          return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0
+        })
+        const ordered = raws.every((value, index) => index === 0 || value >= raws[index - 1])
+        let positions = raws
+        if (!ordered) {
+          const span = done ? Math.max(1, raws.length) : raws.length + 1
+          positions = raws.map((_, index) => (ceiling * (index + 1)) / span)
+        } else {
+          positions = raws.map(value => Math.min(ceiling, value))
+          const last = positions.length > 0 ? positions[positions.length - 1] : 0
+          if (done && last > 0) positions = positions.map(value => Math.min(100, (value * 100) / last))
         }
         // The bar is spatial, but node numbers stay chronological so the card and
         // the expanded list agree on which node is which.
-        const closed = placed
+        const closed = closedEntries.map((entry, index) => ({ ...entry, position: positions[index] }))
         const open = steps.length > 0 && steps[steps.length - 1] !== null && typeof steps[steps.length - 1] === 'object'
           ? { step: steps[steps.length - 1], index: steps.length - 1 }
           : undefined
@@ -693,6 +856,9 @@ window.__ModuleLoader__.load({
           const rank = bucket.indexOf(entry)
           let offset = (rank - (bucket.length - 1) / 2) * 16
           if (showCurrent && key === currentKey) offset -= 16
+          // Never push a dot past the rounded rail's ends.
+          if (entry.position >= 97.5 && offset > 0) offset = 0
+          if (entry.position <= 2.5 && offset < 0) offset = 0
           return offset
         }
         const nodes = []
@@ -834,20 +1000,19 @@ window.__ModuleLoader__.load({
               'div',
               { className: 'dtp-row dtp-meta' },
               listTotal > 0
-                ? h(
+                ? withTooltip(listOpen ? tt(t, 'list.collapse') : tt(t, 'list.expand'), h(
                   'button',
                   {
                     type: 'button',
                     className: 'dtp-expand',
                     'aria-expanded': listOpen,
                     'aria-controls': 'dtp-node-list',
-                    title: listOpen ? tt(t, 'list.collapse') : tt(t, 'list.expand'),
                     onClick: () => setListOpen(value => !value),
                   },
                   h('span', { className: 'dtp-expand-arrow' }, listOpen ? '▾' : '▸'),
                   h('span', { className: 'dtp-expand-label' }, tt(t, 'list.title')),
                   h('span', { className: 'dtp-expand-badge' }, String(listTotal)),
-                )
+                ))
                 : null,
               h('span', { className: 'dtp-phase' }, phase),
               detail === '' ? null : h('span', { className: 'dtp-text', title: detail }, detail),
@@ -905,13 +1070,14 @@ window.__ModuleLoader__.load({
      * @param sessions - client sessions service (list store).
      * @param useJudgements - hook over the evaluator store.
      */
-    function makeRowTrailing(sessions, useJudgements, useStyle) {
+    function makeRowTrailing(sessions, useJudgements, useStyle, useSimple) {
       return function RowTrailing(props) {
         const t = props.t
         const judgements = useJudgements()
         // Hooks stay above every early return (the row mounts only for some
         // sessions), so the ring can reuse the same appearance overrides.
         const local = useStyle()
+        const simpleSettings = useSimple()
         const state = React.useSyncExternalStore(
           listener => sessions.list.subscribe(listener),
           () => sessions.list.getSnapshot(),
@@ -937,6 +1103,7 @@ window.__ModuleLoader__.load({
         )
         if (progress === undefined || progress === null || progress.turn === 0) return null
         if (progress.done === true || !(progress.percent >= 0)) return null
+        if (simpleTurnOf(progress, Date.now(), simpleSettings)) return null
         const percent = progress.percent
         // The ring follows the same configured color as the composer bar.
         const tuned = resolveStyle(
@@ -950,10 +1117,9 @@ window.__ModuleLoader__.load({
         const tip = progress.milestone === ''
           ? tt(t, `phase.${progress.phase}`)
           : `${tt(t, `phase.${progress.phase}`)} · ${progress.milestone}`
-        return h(
+        return withTooltip(tip + ' · ' + percent + '%', h(
           'span',
           {
-            title: `${tip} · ${percent}%`,
             style: {
               display: 'inline-flex',
               alignItems: 'center',
@@ -963,7 +1129,6 @@ window.__ModuleLoader__.load({
               fontSize: '11px',
               lineHeight: '14px',
               fontVariantNumeric: 'tabular-nums',
-              pointerEvents: 'none',
               ...(tuned.explicitColor ? { '--dtp-bar-color': tuned.barColor } : {}),
             },
           },
@@ -984,14 +1149,16 @@ window.__ModuleLoader__.load({
             }),
           ),
           h('span', null, `${percent}%`),
-        )
+        ))
       }
     }
 
     /** Settings-section styles, mirroring the host's row rhythm. */
     const SETTINGS_CSS = [
       '.dtp-set{display:flex;flex-direction:column;width:100%;max-width:680px;color:var(--dsw-alias-label-primary);}',
-      '.dtp-set-heading{margin:0 0 2px;font-size:14px;font-weight:600;line-height:22px;}',
+      '.dtp-set-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 2px;}',
+      '.dtp-set-heading{margin:0;font-size:16px;font-weight:600;line-height:24px;}',
+      '.dtp-set-version{flex:none;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;}',
       '.dtp-set-lead{margin:0 0 8px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
       '.dtp-set-row{display:flex;align-items:center;gap:8px;padding:14px 0;',
       'border-bottom:0.5px solid var(--dsw-alias-border-l2);}',
@@ -999,6 +1166,29 @@ window.__ModuleLoader__.load({
       '.dtp-set-title{font-size:14px;line-height:22px;color:var(--dsw-alias-label-primary);}',
       '.dtp-set-desc{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
       '.dtp-set-control{display:flex;align-items:center;gap:6px;flex:none;}',
+      '.dtp-set-check{width:16px;height:16px;accent-color:var(--dsw-alias-state-business-primary);cursor:pointer;}',
+      '.dtp-simple-card{margin-top:16px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;',
+      'border:0.5px solid var(--dsw-alias-border-l2);border-radius:12px;',
+      'background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));}',
+      '.dtp-simple-card-head{display:flex;flex-direction:column;gap:4px;}',
+      '.dtp-simple-card-headline{display:flex;align-items:center;justify-content:space-between;gap:12px;}',
+      '.dtp-simple-card-title{font-size:14px;line-height:22px;font-weight:600;color:var(--dsw-alias-label-primary);}',
+      '.dtp-switch{position:relative;flex:none;width:36px;height:20px;padding:0;border:0;border-radius:999px;',
+      'background:var(--dsw-alias-border-l2);cursor:pointer;transition:background .18s ease;}',
+      '.dtp-switch[data-on]{background:#000;}',
+      '.dtp-switch-slot{display:inline-flex;flex:none;align-items:center;}',
+      '.dtp-switch-slot button[aria-checked="true"]{background:#000;}',
+      '.dtp-switch-slot button[aria-checked="true"] span{background:#fff;}',
+      '.dtp-switch-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;',
+      'background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.28);transition:transform .18s ease;}',
+      '.dtp-switch[data-on] .dtp-switch-knob{transform:translateX(16px);}',
+      '.dtp-switch:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;}',
+      '.dtp-simple-card-desc{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-simple-field{display:flex;align-items:center;justify-content:space-between;gap:16px;}',
+      '.dtp-simple-field-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}',
+      '.dtp-simple-field-label{font-size:13px;line-height:20px;color:var(--dsw-alias-label-primary);}',
+      '.dtp-simple-field-desc{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);}',
+      '.dtp-simple-control{display:inline-flex;align-items:center;gap:6px;flex:none;}',
       '.dtp-set-num{width:78px;height:30px;box-sizing:border-box;padding:0 8px;border-radius:8px;',
       'border:0.5px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-primary);',
       'font:inherit;font-size:13px;font-variant-numeric:tabular-nums;}',
@@ -1017,10 +1207,13 @@ window.__ModuleLoader__.load({
       '.dtp-set-preview-bar{position:relative;display:flex;align-items:center;',
       'padding-block:7px;margin-block:-7px;}',
       '.dtp-set-preview-bar .dtp-set-track{flex:1 1 auto;width:100%;transform-origin:center;',
-      'transition:transform .2s cubic-bezier(.2,.7,.3,1),box-shadow .2s ease;}',
-      '.dtp-set-preview-bar:hover .dtp-set-track{transform:scaleY(1.9);',
-      'box-shadow:0 0 0 1px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 22%,transparent),',
-      '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 55%,transparent);}',
+      'transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s ease;}',
+      '.dtp-set-preview-bar{transform-origin:center;transition:transform .22s cubic-bezier(.2,.7,.3,1);}',
+      '.dtp-set-preview-bar:hover{transform:scale(1.015);}',
+      '.dtp-set-preview-bar:hover .dtp-set-track{transform:scaleY(1.5);',
+      'box-shadow:0 0 0 2px rgba(255,255,255,.55),0 6px 20px -6px rgba(255,255,255,.9),',
+      'inset 0 1px 0 rgba(255,255,255,.6),',
+      '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 40%,transparent);}',
       '.dtp-set-nodes{position:absolute;inset:0;pointer-events:none;}',
       '@media (prefers-reduced-motion:reduce){.dtp-set-preview-bar .dtp-set-track{transition:none}}',
       '.dtp-set-caption{color:var(--dsw-alias-label-secondary);}',
@@ -1033,7 +1226,7 @@ window.__ModuleLoader__.load({
 
     const PANEL_CSS = [
       '.dtp-panel{display:flex;flex-direction:column;gap:10px;height:100%;min-height:100%;',
-      'box-sizing:border-box;padding:12px;overflow:auto;font-size:12px;line-height:1.5;}',
+      'box-sizing:border-box;padding:12px;overflow:auto;font:inherit;line-height:1.5;}',
       '.dtp-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}',
       '.dtp-panel-title{font-weight:600;color:var(--dsw-alias-label-primary);}',
       '.dtp-panel-count{flex:none;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;}',
@@ -1051,16 +1244,16 @@ window.__ModuleLoader__.load({
       '.dtp-card-line{flex:1;width:1px;min-height:10px;margin-top:3px;background:var(--dsw-alias-border-l1);}',
       '.dtp-card-body{flex:1;min-width:0;}',
       '.dtp-card-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}',
-      '.dtp-card-index{color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums;}',
-      '.dtp-card-badge{padding:0 6px;border-radius:999px;font-size:10px;line-height:16px;',
+      '.dtp-card-index{color:var(--dsw-alias-label-tertiary);font-size:.85em;font-variant-numeric:tabular-nums;}',
+      '.dtp-card-badge{padding:0 6px;border-radius:999px;font-size:.8em;line-height:1.6;',
       'background:color-mix(in srgb,var(--dsw-alias-state-success-primary,#16a34a) 14%,transparent);',
       'color:var(--dsw-alias-state-success-primary,#16a34a);}',
       '.dtp-card-badge-live{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 14%,transparent);',
       'color:var(--dsw-alias-state-business-primary);}',
       '.dtp-card-duration{margin-inline-start:auto;color:var(--dsw-alias-label-tertiary);',
-      'font-size:10px;font-variant-numeric:tabular-nums;}',
+      'font-size:.8em;font-variant-numeric:tabular-nums;}',
       '.dtp-card-label{margin-top:3px;color:var(--dsw-alias-label-primary);word-break:break-word;}',
-      '.dtp-card-meta{margin-top:2px;color:var(--dsw-alias-label-tertiary);font-size:11px;}',
+      '.dtp-card-meta{margin-top:2px;color:var(--dsw-alias-label-tertiary);font-size:.85em;}',
       '.dtp-panel-empty{padding:18px 4px;text-align:center;color:var(--dsw-alias-label-tertiary);}',
     ].join('')
 
@@ -1081,17 +1274,19 @@ window.__ModuleLoader__.load({
      * @param useStyle - hook over the overrides.
      * @param useJudgements - hook over the evaluator store (carries the Host config).
      */
-    function makeSettingsPage(store, useStyle, useJudgements) {
+    function makeSettingsPage(store, useStyle, useJudgements, simpleStore, useSimple) {
       return function TaskProgressSettings(props) {
         const t = props.t
         const [hoveredPreview, setHoveredPreview] = React.useState(null)
         const local = useStyle()
         const judgements = useJudgements()
+        const simple = useSimple()
         const tuned = resolveStyle(
           judgements !== null && judgements !== undefined ? judgements.style : null,
           local,
         )
-        const overridden = Object.keys(local !== null && local !== undefined ? local : {}).length > 0
+        const version = judgements !== null && judgements !== undefined && typeof judgements.version === 'string' ? judgements.version : ''
+        const overridden = Object.keys(local !== null && local !== undefined ? local : {}).length > 0 || simpleStore.overridden()
         const commitNumber = (key, min, max) => event => {
           const parsed = Math.round(Number(event.target.value))
           const value = Number.isFinite(parsed) ? Math.min(max, Math.max(min, parsed)) : 0
@@ -1153,7 +1348,10 @@ window.__ModuleLoader__.load({
           null,
           h('style', { key: 'dtp-set-style' }, DOCK_CSS + SETTINGS_CSS),
           h('div', { className: 'dtp-set' },
-            h('h2', { className: 'dtp-set-heading' }, tt(t, 'settings.title')),
+            h('div', { className: 'dtp-set-head' },
+              h('h2', { className: 'dtp-set-heading' }, tt(t, 'settings.title')),
+              version === '' ? null : h('span', { className: 'dtp-set-version' }, 'v' + version),
+            ),
             h('p', { className: 'dtp-set-lead' }, tt(t, 'settings.lead')),
             row(tt(t, 'settings.height'), tt(t, 'settings.height.desc'), [
               h('input', {
@@ -1214,10 +1412,71 @@ window.__ModuleLoader__.load({
               h('div', { className: 'dtp-set-caption', style: { fontSize: `${tuned.textFontSize}px` } },
                 tt(t, 'settings.preview')),
             ),
+            h('div', { className: 'dtp-simple-card', key: 'simple-card' },
+              h('div', { className: 'dtp-simple-card-head' },
+                h('div', { className: 'dtp-simple-card-headline' },
+                  h('div', { className: 'dtp-simple-card-title' }, tt(t, 'settings.simple')),
+                  h('span', { className: 'dtp-switch-slot' },
+                    DshSwitch !== null
+                      ? h(DshSwitch, {
+                        checked: simple.mode === 'auto',
+                        onChange: next => simpleStore.set({ mode: next ? 'auto' : 'off' }),
+                        label: tt(t, 'settings.simple'),
+                      })
+                      : h('button', {
+                        type: 'button', role: 'switch', className: 'dtp-switch',
+                        'aria-checked': simple.mode === 'auto',
+                        'aria-label': tt(t, 'settings.simple'),
+                        'data-on': simple.mode === 'auto' ? '' : undefined,
+                        onClick: () => simpleStore.set({ mode: simple.mode === 'auto' ? 'off' : 'auto' }),
+                      }, h('span', { className: 'dtp-switch-knob' })),
+                  ),
+                ),
+                h('div', { className: 'dtp-simple-card-desc' }, tt(t, 'settings.simple.desc')),
+              ),
+              h('div', { className: 'dtp-simple-field' },
+                h('div', { className: 'dtp-simple-field-text' },
+                  h('div', { className: 'dtp-simple-field-label' }, tt(t, 'settings.simple.seconds')),
+                  h('div', { className: 'dtp-simple-field-desc' }, tt(t, 'settings.simple.seconds.desc')),
+                ),
+                h('span', { className: 'dtp-simple-control' },
+                  h('input', {
+                    key: 'ss' + simple.seconds, className: 'dtp-set-num', type: 'number',
+                    min: 1, max: 3600, step: 1, defaultValue: simple.seconds,
+                    'aria-label': tt(t, 'settings.simple.seconds'),
+                    onBlur: event => {
+                      const parsed = Math.round(Number(event.target.value))
+                      simpleStore.set({ seconds: Number.isFinite(parsed) ? Math.min(3600, Math.max(1, parsed)) : 30 })
+                    },
+                    onKeyDown: blurOnEnter,
+                  }),
+                  h('span', { className: 'dtp-set-unit' }, tt(t, 'settings.simple.unit.sec')),
+                ),
+              ),
+              h('div', { className: 'dtp-simple-field' },
+                h('div', { className: 'dtp-simple-field-text' },
+                  h('div', { className: 'dtp-simple-field-label' }, tt(t, 'settings.simple.chars')),
+                  h('div', { className: 'dtp-simple-field-desc' }, tt(t, 'settings.simple.chars.desc')),
+                ),
+                h('span', { className: 'dtp-simple-control' },
+                  h('input', {
+                    key: 'sc' + simple.chars, className: 'dtp-set-num', type: 'number',
+                    min: 0, max: 100000, step: 50, defaultValue: simple.chars,
+                    'aria-label': tt(t, 'settings.simple.chars'),
+                    onBlur: event => {
+                      const parsed = Math.round(Number(event.target.value))
+                      simpleStore.set({ chars: Number.isFinite(parsed) ? Math.min(100000, Math.max(0, parsed)) : 1200 })
+                    },
+                    onKeyDown: blurOnEnter,
+                  }),
+                  h('span', { className: 'dtp-set-unit' }, tt(t, 'settings.simple.unit.chars')),
+                ),
+              ),
+            ),
             h('div', { className: 'dtp-set-actions' },
               h('button', {
                 type: 'button', className: 'dtp-set-btn', disabled: !overridden,
-                onClick: () => store.reset(),
+                onClick: () => { store.reset(); simpleStore.reset() },
               }, tt(t, 'settings.reset')),
             ),
           ),
@@ -1362,7 +1621,7 @@ window.__ModuleLoader__.load({
      * after the reply is final, only on the latest turn, and sits after the
      * context action and before the branch action (a high slot order).
      */
-    function makeFooterNodeAction(useJudgements, sessions, openNodes) {
+    function makeFooterNodeAction(useJudgements, sessions, openNodes, useSimple) {
       return function FooterNodeAction(props) {
         const t = props.t
         const sessionId = props.sessionId
@@ -1377,6 +1636,7 @@ window.__ModuleLoader__.load({
             ? sessions.list.getSnapshot()
             : undefined),
         )
+        const simpleSettings = useSimple()
         const [turn, setTurn] = React.useState(null)
         const anchor = React.useCallback(node => {
           if (node === null || node === undefined) return
@@ -1402,13 +1662,15 @@ window.__ModuleLoader__.load({
             : undefined,
           Date.now(),
         )
+        const simple = sessionId !== undefined && progress !== undefined && progress !== null
+          && simpleTurnOf(progress, Date.now(), simpleSettings)
         const known = sessionId !== undefined && progress !== undefined && progress !== null
-          && progress.done === true && turn !== null && String(turn) === String(progress.turn)
+          && progress.done === true && turn !== null && String(turn) === String(progress.turn) && !simple
         return h(
           React.Fragment,
           null,
           h('style', { key: 'dtp-footer-style' }, FOOTER_CSS),
-          h(
+          withTooltip(tt(t, 'footer.view'), h(
             'button',
             {
               key: 'dtp-footer-node',
@@ -1417,7 +1679,6 @@ window.__ModuleLoader__.load({
               className: 'dtp-footer-action',
               style: known ? undefined : { display: 'none' },
               'aria-label': tt(t, 'footer.view'),
-              title: tt(t, 'footer.view'),
               onClick: event => {
                 event.preventDefault()
                 event.stopPropagation()
@@ -1425,7 +1686,7 @@ window.__ModuleLoader__.load({
               },
             },
             h(ProgressGlyph, { size: 17 }),
-          ),
+          ), 'bottom'),
         )
       }
     }
@@ -1438,10 +1699,15 @@ window.__ModuleLoader__.load({
         const useJudgements = () => React.useSyncExternalStore(judgements.subscribe, judgements.getSnapshot)
         const styleStore = createStyleStore()
         const useStyle = () => React.useSyncExternalStore(styleStore.subscribe, styleStore.getSnapshot)
+        const simpleStore = createSimpleStore()
+        const useSimple = () => React.useSyncExternalStore(simpleStore.subscribe, simpleStore.getSnapshot)
+        // Keep the Host sweep in step with the Settings thresholds from the first
+        // render on, so a simple turn never spends an evaluation token.
+        syncSimpleSettings(simpleStore.getSnapshot())
         const t = typeof ctx.locale.bind === 'function' ? ctx.locale.bind(NS) : (key, params) => tt(null, key, params)
-        const ProgressDock = makeProgressDock(useJudgements, useStyle)
-        const RowTrailing = makeRowTrailing(ctx.sessions, useJudgements, useStyle)
-        const SettingsPage = makeSettingsPage(styleStore, useStyle, useJudgements)
+        const ProgressDock = makeProgressDock(useJudgements, useStyle, useSimple)
+        const RowTrailing = makeRowTrailing(ctx.sessions, useJudgements, useStyle, useSimple)
+        const SettingsPage = makeSettingsPage(styleStore, useStyle, useJudgements, simpleStore, useSimple)
         const NodePanel = makeNodePanel(useJudgements, ctx.sessions)
         const openNodePanel = sessionId => {
           try { ctx.layout.openRightbar(true, false) } catch {}
@@ -1459,7 +1725,7 @@ window.__ModuleLoader__.load({
           }
           tryOpen()
         }
-        const FooterNodeAction = makeFooterNodeAction(useJudgements, ctx.sessions, openNodePanel)
+        const FooterNodeAction = makeFooterNodeAction(useJudgements, ctx.sessions, openNodePanel, useSimple)
         ctx.slots.inject('conversation.input.dock', () => ctx.slots.register({
           name: 'conversation.input.dock',
           id: 'task-progress',

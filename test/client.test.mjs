@@ -189,9 +189,14 @@ async function loadDock(store, sessionState = { byId: {}, projectionsBySession: 
     },
     layout: { openRightbar: () => {} },
   }
+  // Stand-in for the Harness primitives: the tooltip receives one anchor child,
+  // which the fake React keeps in `children`.
+  const FakeTooltip = props => props.children
+  const FakeSwitch = props => props.children
   plugin.factory((id) => {
-    assert.equal(id, 'react')
-    return fake.React
+    if (id === 'react') return fake.React
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return { Tooltip: FakeTooltip, Switch: FakeSwitch }
+    throw new Error('unexpected module: ' + id)
   }).apply(ctx)
   const Dock = registered['conversation.input.dock']
   const Settings = registered['settings.section']
@@ -251,7 +256,9 @@ test('the settings preview grows on hover and opens a sample node card', async (
   let tree = renderSettings()
   const bar = byClass(tree, 'dtp-set-preview-bar')[0]
   assert.ok(bar, 'preview bar rendered')
-  assert.ok(textOf(tree).includes('.dtp-set-preview-bar:hover .dtp-set-track{transform:scaleY(1.9)'), 'preview hover scale css')
+  assert.ok(textOf(tree).includes('.dtp-set-preview-bar:hover .dtp-set-track{transform:scaleY(1.5)'), 'preview hover scale css')
+  assert.ok(textOf(tree).includes('.dtp-set-preview-bar:hover{transform:scale(1.015)'), 'preview grows as a whole')
+  assert.ok(textOf(tree).includes('rgba(255,255,255,.55)'), 'preview hover carries a white glow')
   const nodes = byClass(tree, 'dtp-node')
   assert.equal(nodes.length, 2)
   nodes[0].props.onMouseEnter()
@@ -423,6 +430,70 @@ test('a re-estimated turn keeps every node in order and ends on the latest one',
   }
   assert.equal(lefts[18], 65)
   assert.ok(lefts[17] < 65 && lefts[17] > 45, 'the last completed node spreads toward the head')
+})
+
+test('a simple Q&A shows the quiet note instead of a progress bar', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const progress = {
+    ...fixture().progress,
+    turn: 5,
+    percent: -1,
+    source: 'none',
+    modelPercent: -1,
+    milestone: '',
+    next: '',
+    done: false,
+    startedAt: now - 20_000,
+    updatedAt: 0,
+    tools: 0,
+    taskChars: 30,
+    replyChars: 12,
+  }
+  const { render } = await loadDock(store, { byId: {}, projectionsBySession: {} }, progress)
+  const tree = render()
+  assert.match(textOf(tree), /简单任务/)
+  assert.equal(byClass(tree, 'dtp-track').length, 0, 'no progress bar is drawn')
+})
+
+test('one tool call disqualifies a simple-looking turn', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const progress = {
+    ...fixture().progress,
+    turn: 5,
+    percent: -1,
+    source: 'none',
+    modelPercent: -1,
+    milestone: '',
+    next: '',
+    done: false,
+    startedAt: now - 20_000,
+    updatedAt: 0,
+    tools: 1,
+    taskChars: 30,
+    replyChars: 12,
+  }
+  const { render } = await loadDock(store, { byId: {}, projectionsBySession: {} }, progress)
+  const text = textOf(render())
+  assert.doesNotMatch(text, /简单任务/)
+})
+
+test('the Settings heading shows the running plugin version', async () => {
+  const { store } = fixture()
+  store.version = '9.9.9'
+  const { renderSettings } = await loadDock(store)
+  const text = textOf(renderSettings())
+  assert.match(text, /v9\.9\.9/)
+})
+
+test('the Settings page carries the simple-task switch and thresholds', async () => {
+  const { store } = fixture()
+  const { renderSettings } = await loadDock(store)
+  const text = textOf(renderSettings())
+  assert.match(text, /简单任务/)
+  assert.match(text, /最长用时/)
+  assert.match(text, /最长字符数/)
 })
 
 test('the current milestone is an outlined node with its elapsed time and next step', async () => {

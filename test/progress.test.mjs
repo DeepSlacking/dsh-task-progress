@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   applyProgress,
   BLANK,
+  isSimpleTurn,
   normalizeReport,
   progressSchema,
 } from '../lib/progress.js'
@@ -179,4 +180,59 @@ test('judge output parsing rejects unusable estimates', () => {
   assert.equal(parseJudgement('{"percent":120}'), null)
   assert.equal(parseJudgement('no json here'), null)
   assert.match(JUDGE_SYSTEM, /one turn/)
+})
+
+/** One arbitrary tool call in a turn. */
+function toolCall(turn, time, name = 'bash') {
+  return { type: 'tool/call', time, data: { turn, name, arguments: '{}' } }
+}
+
+test('the fold counts tool calls and message characters for simple-task detection', () => {
+  const state = fold([
+    turnStart(1, 1_000),
+    userMessage('帮我查一下天气', 1_100),
+    toolCall(1, 1_200, 'bash'),
+    toolCall(1, 1_300, 'report_progress'),
+    assistant('今天晴，二十度左右。', 1, 1, 2_000),
+  ])
+  assert.equal(state.tools, 2)
+  assert.equal(state.taskChars, 7)
+  assert.equal(state.replyChars, 10)
+})
+
+test('a new turn resets the simple-task counters', () => {
+  const first = fold([
+    turnStart(1, 1_000),
+    userMessage('旧任务', 1_100),
+    toolCall(1, 1_200),
+    assistant('旧回答', 1, 1, 1_300),
+    { type: 'turn/end', time: 2_000, data: { turn: 1, reason: { kind: 'completed' } } },
+  ])
+  const second = applyProgress(first, turnStart(2, 9_000))
+  assert.equal(second.tools, 0)
+  assert.equal(second.taskChars, 0)
+  assert.equal(second.replyChars, 0)
+})
+
+test('isSimpleTurn accepts a short tool-free turn and rejects every disqualifier', () => {
+  const base = fold([
+    turnStart(1, 1_000),
+    userMessage('你好，简单解释一下闭包', 1_100),
+    assistant('闭包是函数与其词法环境的组合。', 1, 1, 5_000),
+  ])
+  const options = { mode: 'auto', seconds: 30, chars: 1200 }
+  assert.equal(isSimpleTurn(base, 10_000, options), true)
+  assert.equal(isSimpleTurn(base, 10_000, { ...options, mode: 'off' }), false)
+  assert.equal(isSimpleTurn(base, 40_000, options), false, 'slow turns are not simple')
+  assert.equal(isSimpleTurn({ ...base, tools: 1 }, 10_000, options), false)
+  assert.equal(isSimpleTurn({ ...base, modelPercent: 50 }, 10_000, options), false)
+  assert.equal(isSimpleTurn({ ...base, taskChars: 5_000 }, 10_000, options), false)
+
+  const done = fold([
+    turnStart(1, 1_000),
+    userMessage('你好', 1_100),
+    assistant('在的。', 1, 1, 5_000),
+    { type: 'turn/end', time: 12_000, data: { turn: 1, reason: { kind: 'completed' } } },
+  ])
+  assert.equal(isSimpleTurn(done, 100_000, options), true, 'a done turn uses its own end time')
 })

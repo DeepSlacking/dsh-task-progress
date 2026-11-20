@@ -19,17 +19,30 @@
  * definition is written as the registry's plain JSON shape instead.
  */
 
-import { applyProgress, BLANK, PHASES, progressSchema, shouldOfferProgressTool } from './lib/progress.js'
+import { applyProgress, BLANK, isSimpleTurn, PHASES, progressSchema, shouldOfferProgressTool } from './lib/progress.js'
 import { buildDigest, buildJudgeInput, JUDGE_SYSTEM, parseJudgement } from './lib/judge.js'
 import { closeRail, observeRail } from './lib/steps.js'
+import { readFileSync } from 'node:fs'
 
 export const name = 'dsh-task-progress'
+
+/** The plugin version, read from its own manifest for the Settings header. */
+const VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version ?? ''
+  } catch {
+    return ''
+  }
+})()
 
 /** The projection is the state store; the tool writes into the log it folds. */
 export const inject = ['tools', 'sessionProjections']
 
 /** Route serving the evaluator's current estimates to the page. */
 const JUDGE_ROUTE = '/api/dsh-task-progress/judgements'
+
+/** Route the Settings page posts the simple-task thresholds to. */
+const SETTINGS_ROUTE = '/api/dsh-task-progress/settings'
 
 /** How often the sweep looks for turns that need an estimate. */
 const SWEEP_MS = 15_000
@@ -161,6 +174,14 @@ export async function apply(ctx, config) {
     judge: config?.judge !== false,
     // Minimum gap between two evaluator calls for one session.
     judgeIntervalMs: clampInt(config?.judgeIntervalMs, 30_000, 600_000, 120_000),
+    // Simple-question mode: a turn with no tool call, no report, and short
+    // duration/text is not evaluated and gets no node rail. The client syncs
+    // the Settings values here with a POST.
+    simple: {
+      mode: config?.simpleMode === 'off' ? 'off' : 'auto',
+      seconds: clampInt(config?.simpleSeconds, 1, 3600, 30),
+      chars: clampInt(config?.simpleChars, 0, 100_000, 1200),
+    },
     // Presentation knobs for the composer strip. 0 / '' means "inherit the
     // theme", so the defaults below never overwrite a host or user CSS value.
     style: {
@@ -183,7 +204,7 @@ export async function apply(ctx, config) {
     // `view` returns the fold's own state, so an event that did not change it
     // republishes nothing; `summary` carries the value on every session row.
     wire: { viewSchema: progressSchema, view: state => state, summary: true },
-    stateVersion: 3,
+    stateVersion: 4,
   })
 
   if (settings.enableTool) {
@@ -362,6 +383,13 @@ export async function apply(ctx, config) {
           continue
         }
         const now = Date.now()
+        // A quick question needs no second opinion and no rail: skip the judge
+        // call (that is the token saving), the observation, and any stale rail.
+        if (isSimpleTurn(state, now, settings.simple)) {
+          judgements.delete(session.id)
+          rails.delete(session.id)
+          continue
+        }
         // A fresh checkpoint from the working model is better than a second
         // opinion, and skipping here is what keeps the evaluator cheap.
         const modelFresh = state.source === 'model' && now - state.updatedAt < settings.judgeIntervalMs
@@ -428,8 +456,65 @@ export async function apply(ctx, config) {
           'content-type': 'application/json; charset=utf-8',
           'cache-control': 'no-store',
         })
-        res.end(JSON.stringify({ ok: true, value: { sessions, rails: railValues, style: settings.style } }))
+        res.end(JSON.stringify({ ok: true, value: { sessions, rails: railValues, style: settings.style, version: VERSION } }))
       },
     }), 'dsh-task-progress: judgements route')
+
+    child.effect(() => child.webServer.register({
+      kind: 'prefix',
+      path: SETTINGS_ROUTE,
+      handler: (req, res) => {
+        let rejected
+        try {
+          rejected = child.connection.requestRejection(req) !== undefined
+        } catch {
+          rejected = true
+        }
+        if (rejected) {
+          res.writeHead(403, { 'content-type': 'application/json; charset=utf-8' })
+          res.end('{"ok":false}')
+          return
+        }
+        const url = new URL(req.url ?? '/', 'http://dsh.internal')
+        if (url.pathname !== SETTINGS_ROUTE) {
+          res.writeHead(404, { 'content-type': 'application/json; charset=utf-8' })
+          res.end('{"ok":false}')
+          return
+        }
+        if (req.method !== 'POST') {
+          res.writeHead(405, { 'content-type': 'application/json; charset=utf-8' })
+          res.end('{"ok":false}')
+          return
+        }
+        let body = ''
+        req.setEncoding('utf8')
+        req.on('data', chunk => {
+          if (body.length < 8192) body += chunk
+        })
+        req.on('end', () => {
+          let parsed = null
+          try {
+            parsed = JSON.parse(body)
+          } catch {
+            parsed = null
+          }
+          if (parsed === null || typeof parsed !== 'object') {
+            res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' })
+            res.end('{"ok":false}')
+            return
+          }
+          // The Settings page owns these values; clamp before trusting them.
+          if (parsed.mode === 'off' || parsed.mode === 'auto') settings.simple.mode = parsed.mode
+          if (Number.isFinite(Number(parsed.seconds))) {
+            settings.simple.seconds = clampInt(parsed.seconds, 1, 3600, settings.simple.seconds)
+          }
+          if (Number.isFinite(Number(parsed.chars))) {
+            settings.simple.chars = clampInt(parsed.chars, 0, 100_000, settings.simple.chars)
+          }
+          res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+          res.end('{"ok":true}')
+        })
+      },
+    }), 'dsh-task-progress: settings route')
   })
 }

@@ -40,7 +40,7 @@ Nodes belong to the current turn only and do not record earlier turns:
 - At most **100** nodes are kept per turn; older ones fade off the rail.
 - Nodes are numbered from **0**: the first finished node is "Node 0", with the current node next.
 - Coincident nodes are nudged apart so every one stays hoverable.
-- A completed node is shown only inside the current fill: if a later estimate lowers the percentage, nodes beyond the fill are hidden until progress catches up.
+- Completed nodes always stay on the rail. If a later estimate lowers the percentage so the recorded values stop increasing, the rail lays the nodes out evenly in completion order across the filled span (an old node never ends up next to the head); a finished turn stretches the rail to the full 100%.
 
 The rail is maintained in the host's evaluator memory (it observes the effective node every 15 seconds), so nodes survive a page reload and reset on the next turn. When a turn ends, the last node is closed at `turn/end` and stays visible briefly.
 
@@ -52,7 +52,18 @@ The leftmost control on the second row is a **Nodes** button with a count badge.
 - below a separator, every completed node in time order (`Node 0 [Done]: detail · phase · duration · finished at`), numbered from 0;
 - the list has a **fixed 180px height** and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
 
-The list includes completed nodes that are temporarily hidden from the bar after a lowered estimate.
+The list and the rail carry the same completed nodes.
+
+### Simple tasks
+
+A turn with no tool call, no `report_progress` call, and short text and duration counts as a **simple task** (defaults: at most 30 seconds, at most 1200 characters combined):
+
+- the Host skips the side-channel evaluator: no evaluation tokens and no node rail;
+- the strip shows one quiet line, `✓ Simple task, no evaluation needed`, once the turn has run longer than 12 seconds (so an ordinary question does not flash it);
+- the sidebar ring, the footer glyph and the Nodes page stay hidden;
+- a later tool call switches the turn back to normal progress automatically.
+
+The switch and both thresholds live in **Settings → Task progress → Simple tasks**.
 
 ### Completed-task entry
 
@@ -116,12 +127,13 @@ When the Plugins page shows "N plugin updates available", open this plugin -> ve
 
 ## Appearance
 
-**Settings → Task progress** offers three options, applied immediately and stored in the browser's localStorage:
+**Settings → Task progress** offers these options, applied immediately and stored in the browser's localStorage:
 
 - Bar height: 2–24 px, default 6
 - Bar color: any CSS color (`#hex`, `rgb()`, `var(--x)`); empty follows the theme accent. Also used by the sidebar ring and the nodes
 - Caption font size: 9–24 px, default 12
-- Node list font size: 9–24 px, default 11
+- Node list font size: 9–24 px, default 11 (the composer's expanded list); the Right Sidebar node cards carry no fixed size and inherit the Harness theme font and size
+- Simple tasks: switch, max duration, max characters (see above)
 
 Precedence: **settings page > row config > theme default**. Row config lives in the profile's `cordis.patch.yml`:
 
@@ -132,9 +144,12 @@ Precedence: **settings page > row config > theme default**. Row config lives in 
     barHeight: 8
     barColor: '#7c5cff'
     textFontSize: 14
+    simpleMode: auto
+    simpleSeconds: 30
+    simpleChars: 1200
 ```
 
-Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs` (reload the plugin after changing them); appearance can also be set in row config as `barHeight` / `barColor` / `textFontSize` / `listFontSize`. You can also set the CSS variables `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size` / `--dtp-list-font-size`. The section ends with a live preview (one completed node and the current node): hovering the bar grows it, and hovering a node opens its detail card.
+Other fields: `enableTool`, `minStep`, `todoBaseline`, `judge`, `judgeIntervalMs`, `simpleMode`, `simpleSeconds`, `simpleChars` (reload the plugin after changing them); appearance can also be set in row config as `barHeight` / `barColor` / `textFontSize` / `listFontSize`. You can also set the CSS variables `--dtp-bar-height` / `--dtp-bar-color` / `--dtp-font-size` / `--dtp-list-font-size`. The section ends with a live preview (one completed node and the current node): hovering the bar grows it, and hovering a node opens its detail card.
 
 ## Layout
 

@@ -2,6 +2,24 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.6.0] - 2026-11-20
+
+### Added
+
+- Simple-task mode. A turn with no tool call, no `report_progress`, short text and a short duration is not evaluated and gets no node rail: the strip shows one quiet `✓ 简单任务，无需评估` line, and the sidebar ring, footer glyph and node page stay hidden. The Settings page configures the switch (`auto` / `off`) and both thresholds, and the Host receives them over `POST /api/dsh-task-progress/settings` so its sweep skips the evaluator entirely. A later tool call switches the turn back to normal progress.
+- Session icons now use the Harness `Tooltip` from `@deepseek-ai/dsh-client-ui-primitives` (footer glyph, sidebar ring, node-list toggle), with the native title as the fallback.
+
+### Changed
+
+- The right sidebar node cards inherit the Harness theme font family and size instead of a fixed 11px.
+- Settings gained a card for simple tasks: the group sits below the live preview under the title **简单任务模式**, with the Harness `Switch` primitive on the title row (black track, white thumb) and inline duration/character fields.
+- The Settings heading is larger and shows the running plugin version on the right; the Host reads its own `package.json` and ships the version on the read-only route, so the badge follows every release.
+- The progress bar's hover state now scales the whole bar slightly (`scale(1.015)`) instead of only stretching its height; vertical growth is softened (`scaleY(1.9)` → `scaleY(1.5)`) and a layered white glow plus an inner top highlight give the pill more material. The Settings preview mirrors the same effect.
+
+### Fixed
+
+- Node positions stay honest: when a re-estimate makes the recorded percentages out of order, the rail lays the completed nodes out evenly across the filled span (no old node next to the head), a finished turn stretches its rail to the full 100%, and dots are kept inside the rail ends.
+
 ## [0.5.13] - 2026-11-19
 
 ### Fixed
