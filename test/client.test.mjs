@@ -460,6 +460,25 @@ test('the strip stays hidden until the model answers or calls a tool', async () 
   assert.equal(render(), null, 'nothing is drawn while the model is still thinking')
 })
 
+test('the current-step text carries the Harness tooltip only when clipped', async () => {
+  const { store } = fixture()
+  const { render } = await loadDock(store)
+  const tree = render()
+  let found = null
+  const walk = node => {
+    if (node === null || node === undefined || typeof node !== 'object') return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item)
+      return
+    }
+    if (node.props !== null && typeof node.props === 'object' && node.props.onlyWhenClipped === true) found = node
+    walk(node.props?.children)
+  }
+  walk(tree)
+  assert.ok(found, 'the strip text is wrapped in a clipping tooltip')
+  assert.match(String(found.props.label), /改客户端样式/)
+})
+
 test('a simple Q&A shows the quiet note instead of a progress bar', async () => {
   const { store } = fixture()
   const now = Date.now()

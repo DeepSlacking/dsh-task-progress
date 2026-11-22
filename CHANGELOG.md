@@ -2,6 +2,18 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.6.2] - 2026-11-22
+
+### Changed
+
+- The current/next-step text under the progress strip now uses the Harness `Tooltip` (shown only when the text is actually clipped).
+- The session row's progress ring is thicker: 2.25px stroke instead of 1.75px.
+
+### Fixed
+
+- The side-channel evaluator's auxiliary model call now declares its `purpose` (`task-progress-judge`), following the same shape as DSH's own auxiliary model calls, so it is not indistinguishable from an ordinary conversation request on that session.
+- Simple-task character tracking stops once a turn calls a tool or reports progress, so a normal task's `taskProgress` projection no longer republishes the session row on every message.
+
 ## [0.6.1] - 2026-11-21
 
 ### Added

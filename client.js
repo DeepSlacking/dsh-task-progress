@@ -38,10 +38,10 @@ window.__ModuleLoader__.load({
       && typeof primitives.Switch === 'function' ? primitives.Switch : null
 
     /** Wrap one anchor with the Harness' own tooltip when it is available. */
-    function withTooltip(label, anchor, side = 'top') {
+    function withTooltip(label, anchor, side = 'top', extra) {
       if (DshTooltip !== null) {
         if (typeof label !== 'string' || label === '') return anchor
-        return h(DshTooltip, { label, side, portal: true }, anchor)
+        return h(DshTooltip, { label, side, portal: true, ...(extra ?? {}) }, anchor)
       }
       // A shell without the primitives still gets a hover hint.
       if (typeof label === 'string' && label !== '' && anchor !== null && typeof anchor === 'object'
@@ -1029,7 +1029,7 @@ window.__ModuleLoader__.load({
                 ))
                 : null,
               h('span', { className: 'dtp-phase' }, phase),
-              detail === '' ? null : h('span', { className: 'dtp-text', title: detail }, detail),
+              detail === '' ? null : withTooltip(detail, h('span', { className: 'dtp-text' }, detail), 'top', { onlyWhenClipped: true }),
               evaluating
                 ? h('span', { className: 'dtp-eta' }, tt(t, 'progress.elapsed', { t: clock(elapsed) }))
                 : !done && progress.etaMin > 0
@@ -1125,7 +1125,7 @@ window.__ModuleLoader__.load({
           local,
         )
         const size = 13
-        const stroke = 1.75
+        const stroke = 2.25
         const radius = (size - stroke) / 2
         const length = 2 * Math.PI * radius
         const tip = progress.milestone === ''

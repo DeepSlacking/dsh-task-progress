@@ -206,13 +206,17 @@ test('the fold counts tool calls and message characters for simple-task detectio
   const state = fold([
     turnStart(1, 1_000),
     userMessage('帮我查一下天气', 1_100),
-    toolCall(1, 1_200, 'bash'),
-    toolCall(1, 1_300, 'report_progress'),
     assistant('今天晴，二十度左右。', 1, 1, 2_000),
   ])
-  assert.equal(state.tools, 2)
+  assert.equal(state.tools, 0)
   assert.equal(state.taskChars, 7)
   assert.equal(state.replyChars, 10)
+  const withTools = fold([
+    turnStart(2, 1_000),
+    toolCall(2, 1_100, 'bash'),
+    toolCall(2, 1_200, 'report_progress'),
+  ])
+  assert.equal(withTools.tools, 2)
 })
 
 test('a new turn resets the simple-task counters', () => {
@@ -227,6 +231,20 @@ test('a new turn resets the simple-task counters', () => {
   assert.equal(second.tools, 0)
   assert.equal(second.taskChars, 0)
   assert.equal(second.replyChars, 0)
+})
+
+test('character tracking stops once the turn can no longer be simple', () => {
+  const long = 'x'.repeat(5000)
+  const state = fold([
+    turnStart(1, 1_000),
+    userMessage('短问题', 1_100),
+    toolCall(1, 1_200),
+    userMessage(long, 1_300),
+    assistant(long, 1, 1, 1_400),
+  ])
+  assert.equal(state.tools, 1)
+  assert.equal(state.taskChars, 3, 'later user text is not folded after a tool call')
+  assert.equal(state.replyChars, 0, 'assistant text is not folded after a tool call')
 })
 
 test('isSimpleTurn accepts a short tool-free turn and rejects every disqualifier', () => {

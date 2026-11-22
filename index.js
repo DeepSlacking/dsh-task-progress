@@ -342,6 +342,9 @@ export async function apply(ctx, config) {
           messages: [{ role: 'user', content: [{ type: 'text', text: buildJudgeInput(digest, nodes) }] }],
           system: JUDGE_SYSTEM,
           sessionId: session.id,
+          // Same shape DSH's own auxiliary calls use: the purpose keeps this
+          // out-of-band request distinguishable from a conversation request.
+          purpose: 'task-progress-judge',
           signal: controller.signal,
         }
         for await (const chunk of call.stream(options)) {
