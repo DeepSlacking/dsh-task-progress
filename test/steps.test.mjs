@@ -38,8 +38,9 @@ test('a new milestone closes the previous one with its duration', () => {
       endedAt: rail.steps[0].endedAt,
       durationMs: rail.steps[0].durationMs,
     },
-    { label: '定位问题', percent: 30, endedAt: 90_000, durationMs: 70_000 },
+    { label: '定位问题', percent: 0, endedAt: 90_000, durationMs: 70_000 },
   )
+  assert.equal(rail.steps[0].originalPercent, 0, 'node 0 has no recorded work behind it')
   assert.equal(rail.steps[1].label, '改客户端')
   assert.equal(rail.steps[1].at, 90_000)
   assert.equal(rail.steps[1].endedAt, 0)
@@ -86,27 +87,32 @@ test('the rail is bounded to the newest milestones', () => {
 test('a milestone below the previous one asks for a rescale', () => {
   let rail = observe(undefined, '定位问题', 20, 'execute', 20_000)
   rail = observe(rail, '定位问题', 60, 'execute', 30_000)
-  rail = observe(rail, '改客户端', 40, 'execute', 40_000)
+  rail = observe(rail, '改客户端', 60, 'execute', 40_000)
+  rail = observe(rail, '验证', 40, 'execute', 50_000)
+  assert.equal(rail.steps.length, 3)
   assert.equal(railNeedsRescale(rail), true)
   const fixed = rescaleRail(rail, 30)
-  assert.equal(fixed.steps[0].percent, 30, 'the newest closed node maps to the anchor')
-  assert.equal(fixed.steps[1].percent, 40, 'the open node keeps its estimate')
+  assert.equal(fixed.steps[1].percent, 30, 'the newest closed node maps to the anchor')
+  assert.equal(fixed.steps[2].percent, 40, 'the open node keeps its estimate')
   assert.equal(railNeedsRescale(fixed), false)
 })
 
 test('the rescale anchor is clamped to the open node', () => {
   let rail = observe(undefined, 'a', 20, 'execute', 20_000)
   rail = observe(rail, 'a', 80, 'execute', 30_000)
-  rail = observe(rail, 'b', 50, 'execute', 40_000)
+  rail = observe(rail, 'b', 80, 'execute', 40_000)
+  rail = observe(rail, 'c', 50, 'execute', 50_000)
   const clamped = rescaleRail(rail, 95)
-  assert.equal(clamped.steps[0].percent, 50, 'a closed node cannot pass the open estimate')
-  assert.equal(clamped.steps[1].percent, 50)
+  assert.equal(clamped.steps[1].percent, 50, 'a closed node cannot pass the open estimate')
+  assert.equal(clamped.steps[2].percent, 50)
 })
 
 test('an equal percentage asks for a rescale, a strict rise does not', () => {
   let rail = observe(undefined, 'a', 40, 'execute', 20_000)
-  assert.equal(railNeedsRescale(rail), false)
-  rail = observe(rail, 'b', 40, 'execute', 40_000)
+  rail = observe(rail, 'a', 60, 'execute', 30_000)
+  rail = observe(rail, 'b', 60, 'execute', 40_000)
+  assert.equal(railNeedsRescale(rail), false, 'node 0 to the open node rises')
+  rail = observe(rail, 'c', 60, 'execute', 50_000)
   assert.equal(railNeedsRescale(rail), true, 'newest <= previous triggers the correction')
   const flat = observe(undefined, 'a', 10, 'plan', 20_000)
   const rising = observe(flat, 'b', 30, 'execute', 40_000)
@@ -117,4 +123,31 @@ test('a lone node is left alone', () => {
   const rail = observe(undefined, 'a', 10, 'plan', 20_000)
   assert.equal(railNeedsRescale(rail), false)
   assert.equal(rescaleRail(rail, 20), rail)
+})
+
+test('a rescale keeps the original percentage and records each correction', () => {
+  let rail = observe(undefined, 'a', 20, 'execute', 20_000)
+  rail = observe(rail, 'a', 60, 'execute', 30_000)
+  rail = observe(rail, 'b', 60, 'execute', 40_000)
+  rail = observe(rail, 'c', 40, 'execute', 50_000)
+  assert.equal(rail.steps[1].originalPercent, 60)
+  assert.equal(rail.steps[1].corrections, 0)
+  const once = rescaleRail(rail, 30)
+  assert.equal(once.steps[1].percent, 30)
+  assert.equal(once.steps[1].originalPercent, 60)
+  assert.equal(once.steps[1].corrections, 1)
+  assert.deepEqual(once.steps[1].correctionHistory, [{ from: 60, to: 30 }])
+  const twice = rescaleRail(once, 20)
+  assert.equal(twice.steps[1].percent, 20)
+  assert.equal(twice.steps[1].originalPercent, 60)
+  assert.equal(twice.steps[1].corrections, 2)
+  assert.deepEqual(twice.steps[1].correctionHistory, [{ from: 60, to: 30 }, { from: 30, to: 20 }])
+})
+test('node 0 stays at zero even when its milestone closed late', () => {
+  let rail = observe(undefined, '定位问题', 10, 'plan', 20_000)
+  rail = observe(rail, '定位问题', 30, 'execute', 40_000)
+  rail = observe(rail, '改客户端', 55, 'execute', 90_000)
+  assert.equal(rail.steps[0].percent, 0)
+  assert.equal(rail.steps[0].originalPercent, 0)
+  assert.equal(rail.steps[0].corrections, 0)
 })

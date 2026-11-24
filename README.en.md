@@ -22,7 +22,7 @@ Two illustrations of a fictional task (no real conversation content).
 
 | Where | What it shows |
 | --- | --- |
-| Above the composer (`conversation.input.dock`) | Two rows: the first has the bar, the percentage and this turn's nodes; the second has the phase, current node, next step and estimated time left. Width follows the chat content area (the host's `--dsh-chat-content-width`) and tracks resizing |
+| Above the composer (`conversation.input.dock`) | Two rows: the first has the bar, the percentage and this turn's nodes; the second has the phase, current node, next step and estimated time range range left. Width follows the chat content area (the host's `--dsh-chat-content-width`) and tracks resizing |
 | On the session row (`sidebar.session.row.trailing`) | A small ring and percentage next to the timestamp, colored like the bar; shown only for a running, non-empty, non-subagent session that has an estimate |
 | In a completed reply's footer (`conversation.chat.assistant-actions`) | After the model's reply is final, a gray progress glyph after the context action and before the branch action; only on the latest completed turn |
 | Right Sidebar (`sidebar.right.pane.tab`) | Clicking that glyph opens a **Nodes** card page: every node of the task in time order, with durations |
@@ -35,10 +35,10 @@ Nodes belong to the current turn only and do not record earlier turns:
 
 - Whenever model self-report or the side-channel evaluator names a new "current node", the previous node counts as finished and leaves a **filled node** at the percentage where it was last seen.
 - The current node is an **outlined node** at the bar's current percentage.
-- Hovering any node opens a detail card: which node, finished / in progress, its label and phase; finished nodes show the completion time and how long that segment took (from appearing to being replaced), the current node shows elapsed time and the *next step*.
+- Hovering any node opens a detail card: which node, finished / in progress, its **final percentage**, label and phase; finished nodes show the completion time and how long that segment took (from appearing to being replaced), the current node shows elapsed time and the *next step*.
 - Nodes are Tab-focusable and show the same detail on focus.
 - At most **100** nodes are kept per turn; older ones fade off the rail.
-- Nodes are numbered from **0**: the first finished node is "Node 0", with the current node next.
+- Nodes are numbered from **0**: the first finished node is "Node 0", with the current node next. Node 0 is always 0%: it covers the time before any work was recorded, when only the task description was known.
 - Coincident nodes are nudged apart so every one stays hoverable.
 - Completed nodes stay on the rail at the percentage recorded when they closed — never spread evenly by node count. When the newest node's percentage does not rise above the previous one (≤), the Host attaches the turn's node list to its next side-channel evaluation and asks the model for the share of the current plan already completed (an anchor); the completed nodes are then rescaled onto it proportionally. Without an anchor the rail falls back to the local monotonic hold, so nodes never invert. Positions stay clamped to the bar and the current fill. The correction costs no extra request: it rides on the existing evaluator call, and only the request that detected a drop carries the node list.
 
@@ -49,7 +49,7 @@ The rail is maintained in the host's evaluator memory (it observes the effective
 The leftmost control on the second row is a **Nodes** button with a count badge. Opening it expands the turn's full node list:
 
 - the current node first (`Node N [In progress]: detail · phase · elapsed`);
-- below a separator, every completed node in time order (`Node 0 [Done]: detail · phase · duration · finished at`), numbered from 0;
+- below a separator, every completed node in time order (`Node 0 [Done]: final percentage · detail · phase · duration · finished at`), numbered from 0; the list shows the final, corrected percentage only;
 - the list has a **fixed 180px height** and scrolls inside itself; click the button again to collapse it. The badge is the total number of nodes this turn.
 
 The list and the rail carry the same completed nodes.
@@ -70,7 +70,7 @@ The switch and both thresholds live in **Settings → Task progress → Simple t
 Once the reply is final and this is the latest turn, the completed message's action row (`conversation.chat.assistant-actions`) shows a **gray** progress glyph after the context action and before the branch action. It is not repeated on older turns; only the latest completed turn carries it. Clicking it:
 
 - opens the Right Sidebar on a tab named **Nodes** with the same glyph in its title;
-- shows every node of `rails[sessionId]` as a card in time order: number, done/in-progress, label, phase, duration and finish time; the header carries the total;
+- shows every node of `rails[sessionId]` as a card in time order: number, **percentage badge** (an in-progress card says so instead), label, phase, duration and finish time; the header carries the node count and the task's total duration using only the units actually used (e.g. `14分51秒`); expanding a completed card shows its correction history — "无需矫正" when nothing moved it, otherwise "已矫正 N 次" and one "第 X 次矫正，校正前 A%，矫正后 B%" line per rescale;
 - the Host keeps the completed turn's rail until the next turn's first observation, and the client marks the last node done as soon as `taskProgress.done` arrives, even before the next Host sweep.
 
 The plugin icon (the one shown under Settings → Plugins) is `icon.svg`; the **Task progress** icon in the Settings navigation is registered through the `settings.section.icon` slot (same id as `settings.section`), so the Settings page shows the same glyph too.

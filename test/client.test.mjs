@@ -286,7 +286,7 @@ test('the right Sidebar panel lists every node as a card in time order', async (
   const cards = byClass(tree, 'dtp-card')
   assert.equal(cards.length, 2)
   assert.match(textOf(cards[0]), /节点 0/)
-  assert.match(textOf(cards[0]), /已完成/)
+  assert.match(textOf(cards[0]), /15%/)
   assert.match(textOf(cards[0]), /定位问题/)
   assert.match(textOf(cards[0]), /耗时 5 分钟/)
   assert.match(textOf(cards[0]), /完成/)
@@ -314,7 +314,7 @@ test('the node panel shows the last node as completed once the turn is done', as
   const cards = byClass(tree, 'dtp-card')
   assert.equal(cards.length, 2)
   assert.match(textOf(cards[1]), /节点 1/)
-  assert.match(textOf(cards[1]), /已完成/)
+  assert.match(textOf(cards[1]), /40%/)
   assert.doesNotMatch(textOf(cards[1]), /进行中/)
   assert.match(textOf(cards[1]), /完成/)
 })
@@ -327,6 +327,7 @@ test('the bar shows the open task percent with one node per closed milestone', a
   assert.deepEqual(nodes.map(node => node.props.style.left), ['15%', '40%'])
   assert.equal(nodes[1].props.className, 'dtp-node dtp-node-current')
   assert.match(textOf(tree), new RegExp(`${progress.percent}%`))
+  assert.match(textOf(tree), /约 4–7 分钟/)
   assert.equal(byClass(tree, 'dtp-tip').length, 0)
 })
 
@@ -351,6 +352,7 @@ test('expanding the node list shows the current node first and completed nodes i
   assert.match(textOf(rows[1]), /已完成/)
   assert.match(textOf(rows[1]), /定位问题/)
   assert.match(textOf(rows[1]), /耗时 5 分钟/)
+  assert.match(textOf(rows[1]), /15%/)
   assert.equal(byClass(tree, 'dtp-list-rule').length, 1)
 })
 
@@ -543,6 +545,15 @@ test('the Settings page carries the simple-task switch and thresholds', async ()
   assert.match(text, /最长字符数/)
 })
 
+test('a completed node tooltip carries its final percentage', async () => {
+  const { store } = fixture()
+  const { render } = await loadDock(store)
+  let tree = render()
+  byClass(tree, 'dtp-node')[0].props.onMouseEnter()
+  tree = render()
+  assert.match(textOf(byClass(tree, 'dtp-tip')[0]), /15%/)
+})
+
 test('the current milestone is an outlined node with its elapsed time and next step', async () => {
   const { store } = fixture()
   const { render } = await loadDock(store)
@@ -555,4 +566,58 @@ test('the current milestone is an outlined node with its elapsed time and next s
   assert.match(text, /改客户端样式/)
   assert.match(text, /下一步：验证悬停与节点/)
   assert.match(text, /已用/)
+})
+
+test('the node panel shows final percentages and expands to the correction history', async () => {
+  const { store } = fixture()
+  const rail = store.rails['session-1']
+  rail.steps[0].originalPercent = 10
+  rail.steps[0].corrections = 2
+  rail.steps[0].correctionHistory = [{ from: 10, to: 18 }, { from: 18, to: 15 }]
+  const { renderPanel } = await loadDock(store)
+  let tree = renderPanel()
+  const cards = byClass(tree, 'dtp-card')
+  assert.match(textOf(cards[0]), /15%/)
+  assert.doesNotMatch(textOf(tree), /已矫正/)
+  cards[0].props.onClick()
+  tree = renderPanel()
+  const opened = byClass(tree, 'dtp-card')
+  assert.match(textOf(opened[0]), /已矫正 2 次/)
+  assert.match(textOf(opened[0]), /第 1 次矫正，校正前 10%，矫正后 18%/)
+  assert.match(textOf(opened[0]), /第 2 次矫正，校正前 18%，矫正后 15%/)
+  assert.doesNotMatch(textOf(opened[1]), /已矫正/, 'only completed cards carry correction details')
+})
+
+test('a completed node without corrections says so when expanded', async () => {
+  const { store } = fixture()
+  store.rails['session-1'].steps[0].corrections = 0
+  const { renderPanel } = await loadDock(store)
+  let tree = renderPanel()
+  byClass(tree, 'dtp-card')[0].props.onClick()
+  tree = renderPanel()
+  assert.match(textOf(byClass(tree, 'dtp-card')[0]), /无需矫正/)
+})
+
+test('the node panel header shows the task total duration', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const { renderPanel } = await loadDock(store, {
+    byId: {
+      'session-1': {
+        projectionValues: {
+          taskProgress: { v: 4, turn: 4, percent: 40, done: false, startedAt: now - 600_000, updatedAt: now },
+        },
+      },
+    },
+    projectionsBySession: {},
+  })
+  assert.match(textOf(renderPanel()), /总用时 1[01]分/)
+})
+
+test('the stale hint dims only the text, never the bar or its nodes', async () => {
+  const { store } = fixture()
+  const { render } = await loadDock(store)
+  const css = textOf(render())
+  assert.ok(css.includes('.dtp-dock[data-stale] .dtp-meta{opacity:.72}'))
+  assert.ok(!css.includes('.dtp-dock[data-stale]{opacity:.72}'))
 })

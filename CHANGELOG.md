@@ -2,6 +2,20 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.7.0] - 2026-11-24
+
+### Added
+
+- Completed nodes carry their final percentage: in the bar's hover card, in the expanded node list, and on the Right Sidebar cards.
+- The Right Sidebar card for a completed node replaces the "Done" badge with its percentage; expanding it shows the correction history — "无需矫正" when nothing was rescaled, or "已矫正 N 次" followed by one "第 X 次矫正，校正前 A%，矫正后 B%" line per rescale.
+- The Right Sidebar header shows the task's total duration next to the node count, formatted with only the units actually used (for example "14分51秒" or "1时14分51秒").
+- The remaining-time estimate is now a range around the evaluator's estimate (for example `约 4–7 分钟`); the span is capped at twice the range's average.
+
+### Changed
+
+- Node 0 is always shown at 0%: it covers the time before any work was recorded, when only the task description was known.
+- The stale hint no longer fades the whole strip: when no checkpoint has arrived for 90 seconds only the text row dims, while the bar and its nodes stay fully opaque.
+
 ## [0.6.2] - 2026-11-22
 
 ### Changed

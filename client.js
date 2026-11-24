@@ -80,7 +80,9 @@ window.__ModuleLoader__.load({
         'progress.evaluating': '评估中',
         'progress.elapsed': '已进行 {t}',
         'progress.analyzing': '正在分析本轮进展',
+        'progress.etaRange': '约 {a}–{b} 分钟',
         'step.index': '节点 {n}',
+        'step.percent': '{n}%',
         'step.node': '节点 {n}：{x}，耗时 {t}',
         'step.duration': '耗时 {t}',
         'step.finished': '{t} 完成',
@@ -90,7 +92,11 @@ window.__ModuleLoader__.load({
         'tab.title': '节点',
         'tab.heading': '本次任务节点',
         'tab.count': '{n} 个节点',
+        'tab.duration': '总用时 {t}',
         'tab.empty': '本轮还没有节点记录。',
+        'card.noCorrection': '无需矫正',
+        'card.correctedCount': '已矫正 {n} 次',
+        'card.correctionRow': '第 {i} 次矫正，校正前 {from}%，矫正后 {to}%',
         'footer.view': '查看本次任务节点',
         'list.expand': '展开节点列表',
         'list.collapse': '收起节点列表',
@@ -101,6 +107,10 @@ window.__ModuleLoader__.load({
         'duration.minSec': '{m} 分 {s} 秒',
         'duration.hour': '{n} 小时',
         'duration.hourMin': '{h} 小时 {m} 分',
+        'duration.totalDay': '{n}天',
+        'duration.totalHour': '{n}时',
+        'duration.totalMin': '{n}分',
+        'duration.totalSec': '{n}秒',
         'settings.title': '任务进度',
         'settings.lead': '进度条显示在输入框上方，这里调整它的外观；未改动的项跟随主题。',
         'settings.height': '进度条高度',
@@ -143,7 +153,9 @@ window.__ModuleLoader__.load({
         'progress.evaluating': 'Evaluating',
         'progress.elapsed': '{t} elapsed',
         'progress.analyzing': 'Reviewing this turn',
+        'progress.etaRange': '~{a}–{b} min left',
         'step.index': 'Node {n}',
+        'step.percent': '{n}%',
         'step.node': 'Node {n}: {x}, took {t}',
         'step.duration': 'took {t}',
         'step.finished': 'finished {t}',
@@ -153,7 +165,11 @@ window.__ModuleLoader__.load({
         'tab.title': 'Nodes',
         'tab.heading': 'Nodes for this task',
         'tab.count': '{n} nodes',
+        'tab.duration': 'Total {t}',
         'tab.empty': 'No nodes recorded for this turn yet.',
+        'card.noCorrection': 'No correction needed',
+        'card.correctedCount': 'Corrected {n} times',
+        'card.correctionRow': 'Correction {i}: {from}% → {to}%',
         'footer.view': "View this task's nodes",
         'list.expand': 'Expand node list',
         'list.collapse': 'Collapse node list',
@@ -164,6 +180,10 @@ window.__ModuleLoader__.load({
         'duration.minSec': '{m}m {s}s',
         'duration.hour': '{n} h',
         'duration.hourMin': '{h} h {m} min',
+        'duration.totalDay': '{n}d',
+        'duration.totalHour': '{n}h',
+        'duration.totalMin': '{n}min',
+        'duration.totalSec': '{n}s',
         'settings.title': 'Task progress',
         'settings.lead': 'The progress strip sits above the composer; adjust its appearance here. Untouched fields follow the theme.',
         'settings.height': 'Bar height',
@@ -254,7 +274,8 @@ window.__ModuleLoader__.load({
       ' - var(--dsh-composer-dock-inset,8px) - var(--dsh-composer-dock-inset,8px));',
       'margin:0 auto;padding:2px 0 4px;font-size:12px;line-height:16px;',
       'color:var(--dsw-alias-label-secondary);}',
-      '.dtp-dock[data-stale]{opacity:.72}',
+      '.dtp-dock[data-stale] .dtp-meta{opacity:.72}',
+      '.dtp-dock[data-stale] .dtp-pct{opacity:.72}',
       '.dtp-row{display:flex;align-items:center;gap:8px;min-width:0;width:100%;}',
       '.dtp-meta{font-size:var(--dtp-font-size,12px);line-height:1.45;}',
       // The wrapper owns a taller hover target than the 6px rail itself, and
@@ -383,6 +404,33 @@ window.__ModuleLoader__.load({
       return rest === 0
         ? tt(t, 'duration.hour', { n: hours })
         : tt(t, 'duration.hourMin', { h: hours, m: rest })
+    }
+
+    /** A remaining-time range around the evaluator's estimate. */
+    function etaRangeOf(minutes) {
+      const center = Math.max(0, Math.round(Number(minutes) || 0))
+      if (center <= 0) return null
+      const low = Math.max(1, Math.round(center * 0.7))
+      const high = Math.max(low + 1, Math.round(center * 1.3))
+      // The span may not exceed twice the average estimate of the range.
+      const span = high - low
+      const average = (low + high) / 2
+      return span > average * 2 ? [low, low + Math.floor(average * 2)] : [low, high]
+    }
+
+    /** Whole-task time, dropping zero units so only real time shows. */
+    function totalTimeText(t, ms) {
+      const total = Math.max(0, Math.round((Number(ms) || 0) / 1000))
+      const days = Math.floor(total / 86400)
+      const hours = Math.floor((total % 86400) / 3600)
+      const minutes = Math.floor((total % 3600) / 60)
+      const seconds = total % 60
+      const parts = []
+      if (days > 0) parts.push(tt(t, 'duration.totalDay', { n: days }))
+      if (hours > 0) parts.push(tt(t, 'duration.totalHour', { n: hours }))
+      if (minutes > 0) parts.push(tt(t, 'duration.totalMin', { n: minutes }))
+      if (seconds > 0 || parts.length === 0) parts.push(tt(t, 'duration.totalSec', { n: seconds }))
+      return parts.join('')
     }
 
     /** Wall-clock `HH:MM` of a completion timestamp, or `''` when unknown. */
@@ -779,6 +827,7 @@ window.__ModuleLoader__.load({
         if (progress.milestone !== '') detailParts.push(progress.milestone)
         if (next !== '') detailParts.push(tt(t, 'progress.next', { x: next }))
         const detail = evaluating ? tt(t, 'progress.analyzing') : detailParts.join(' · ')
+        const etaRange = !done ? etaRangeOf(progress.etaMin) : null
         // Configured presentation rides CSS variables on the strip itself, so it
         // only overrides what the owner actually set; unset knobs keep the theme.
         const tuned = resolveStyle(
@@ -883,7 +932,7 @@ window.__ModuleLoader__.load({
           const label = step.label || ''
           const took = durationText(t, step.durationMs)
           const finished = timeText(step.endedAt)
-          const meta = [tt(t, `phase.${step.phase}`)]
+          const meta = [tt(t, `phase.${step.phase}`), tt(t, 'step.percent', { n: Math.round(step.percent) })]
           meta.push(tt(t, 'step.duration', { t: took }))
           if (finished !== '') meta.push(tt(t, 'step.finished', { t: finished }))
           const key = `step-${index}`
@@ -1032,8 +1081,8 @@ window.__ModuleLoader__.load({
               detail === '' ? null : withTooltip(detail, h('span', { className: 'dtp-text' }, detail), 'top', { onlyWhenClipped: true }),
               evaluating
                 ? h('span', { className: 'dtp-eta' }, tt(t, 'progress.elapsed', { t: clock(elapsed) }))
-                : !done && progress.etaMin > 0
-                  ? h('span', { className: 'dtp-eta' }, tt(t, 'progress.eta', { n: progress.etaMin }))
+                : etaRange !== null
+                  ? h('span', { className: 'dtp-eta' }, tt(t, 'progress.etaRange', { a: etaRange[0], b: etaRange[1] }))
                   : null,
             ),
             listOpen && listTotal > 0
@@ -1058,6 +1107,7 @@ window.__ModuleLoader__.load({
                 listDone.map(({ step, index }) => {
                   const finished = timeText(step.endedAt)
                   const meta = [
+                    tt(t, 'step.percent', { n: Math.round(step.percent) }),
                     tt(t, `phase.${step.phase}`),
                     tt(t, 'step.duration', { t: durationText(t, step.durationMs) }),
                   ]
@@ -1244,9 +1294,13 @@ window.__ModuleLoader__.load({
       '.dtp-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}',
       '.dtp-panel-title{font-weight:600;color:var(--dsw-alias-label-primary);}',
       '.dtp-panel-count{flex:none;color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;}',
+      '.dtp-panel-meta{display:flex;align-items:center;gap:10px;flex:none;}',
+      '.dtp-panel-duration{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;}',
       '.dtp-cards{display:flex;flex-direction:column;gap:8px;}',
       '.dtp-card{display:flex;gap:9px;padding:9px 10px;border:0.5px solid var(--dsw-alias-border-l1);',
-      'border-radius:10px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));}',
+      'border-radius:10px;background:var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));cursor:pointer;}',
+      '.dtp-card:hover{border-color:var(--dsw-alias-border-l2);}',
+      '.dtp-card:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px;}',
       '.dtp-card-live{border-color:color-mix(in srgb,var(--dsw-alias-state-business-primary) 45%,var(--dsw-alias-border-l1));',
       'background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 5%,var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff)));}',
       '.dtp-card-rail{flex:none;width:16px;display:flex;flex-direction:column;align-items:center;}',
@@ -1264,8 +1318,13 @@ window.__ModuleLoader__.load({
       'color:var(--dsw-alias-state-success-primary,#16a34a);}',
       '.dtp-card-badge-live{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 14%,transparent);',
       'color:var(--dsw-alias-state-business-primary);}',
-      '.dtp-card-duration{margin-inline-start:auto;color:var(--dsw-alias-label-tertiary);',
+      '.dtp-card-duration{color:var(--dsw-alias-label-tertiary);',
       'font-size:.8em;font-variant-numeric:tabular-nums;}',
+      '.dtp-card-percent{color:var(--dsw-alias-label-secondary);font-size:.85em;font-variant-numeric:tabular-nums;}',
+      '.dtp-card-toggle{margin-inline-start:auto;color:var(--dsw-alias-label-tertiary);font-size:.8em;}',
+      '.dtp-card-detail{margin-top:3px;display:flex;flex-direction:column;gap:2px;color:var(--dsw-alias-label-tertiary);',
+      'font-size:.8em;font-variant-numeric:tabular-nums;}',
+      '.dtp-card-correction-head{color:var(--dsw-alias-label-secondary);}',
       '.dtp-card-label{margin-top:3px;color:var(--dsw-alias-label-primary);word-break:break-word;}',
       '.dtp-card-meta{margin-top:2px;color:var(--dsw-alias-label-tertiary);font-size:.85em;}',
       '.dtp-panel-empty{padding:18px 4px;text-align:center;color:var(--dsw-alias-label-tertiary);}',
@@ -1514,6 +1573,7 @@ window.__ModuleLoader__.load({
             ? sessions.list.getSnapshot()
             : undefined),
         )
+        const [openCards, setOpenCards] = React.useState({})
         const rail = sessionId !== undefined && judgements !== null && judgements !== undefined
           && judgements.rails !== null && judgements.rails !== undefined
           ? judgements.rails[sessionId]
@@ -1542,6 +1602,9 @@ window.__ModuleLoader__.load({
         const done = progress !== undefined && progress !== null && progress.done === true
           && rail !== null && rail !== undefined && progress.turn === rail.turn
         const doneAt = done ? (progress.updatedAt > 0 ? progress.updatedAt : Date.now()) : 0
+        const totalMs = progress !== undefined && progress !== null && progress.startedAt > 0
+          ? Math.max(0, ((done === true && progress.updatedAt > 0 ? progress.updatedAt : Date.now()) - progress.startedAt))
+          : 0
         const steps = rail !== null && rail !== undefined && Array.isArray(rail.steps)
           ? rail.steps.filter(step => step !== null && typeof step === 'object')
           : []
@@ -1555,9 +1618,29 @@ window.__ModuleLoader__.load({
             const finished = timeText(ended)
             if (finished !== '') meta.push(tt(t, 'step.finished', { t: finished }))
           }
+          const percent = Math.round(Number(step.percent) || 0)
+          const original = Number.isFinite(Number(step.originalPercent)) ? Math.round(Number(step.originalPercent)) : percent
+          const corrections = Number(step.corrections) || 0
+          const history = Array.isArray(step.correctionHistory) ? step.correctionHistory : []
+          const rows = history.length > 0 ? history : (corrections > 0 ? [{ from: original, to: percent }] : [])
+          const open = openCards[index] === true
+          const toggle = () => setOpenCards(previous => ({ ...previous, [index]: !previous[index] }))
           return h(
             'div',
-            { className: live ? 'dtp-card dtp-card-live' : 'dtp-card', key: `card-${index}` },
+            {
+              className: live ? 'dtp-card dtp-card-live' : 'dtp-card',
+              key: `card-${index}`,
+              role: 'button',
+              tabIndex: 0,
+              'aria-expanded': open,
+              onClick: toggle,
+              onKeyDown: event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  toggle()
+                }
+              },
+            },
             h(
               'div',
               { className: 'dtp-card-rail' },
@@ -1574,8 +1657,9 @@ window.__ModuleLoader__.load({
                 h(
                   'span',
                   { className: live ? 'dtp-card-badge dtp-card-badge-live' : 'dtp-card-badge' },
-                  tt(t, live ? 'step.running' : 'done'),
+                  live ? tt(t, 'step.running') : tt(t, 'step.percent', { n: percent }),
                 ),
+                live ? h('span', { className: 'dtp-card-percent' }, tt(t, 'step.percent', { n: percent })) : null,
                 h(
                   'span',
                   { className: 'dtp-card-duration' },
@@ -1583,9 +1667,31 @@ window.__ModuleLoader__.load({
                     ? tt(t, 'step.elapsed', { t: durationText(t, took) })
                     : tt(t, 'step.duration', { t: durationText(t, took) }),
                 ),
+                h('span', { className: 'dtp-card-toggle', 'aria-hidden': 'true' }, open ? '▾' : '▸'),
               ),
               h('div', { className: 'dtp-card-label' }, step.label),
               h('div', { className: 'dtp-card-meta' }, meta.join(' · ')),
+              closed && open
+                ? h(
+                  'div',
+                  { className: 'dtp-card-detail' },
+                  corrections === 0
+                    ? h('div', { className: 'dtp-card-correction' }, tt(t, 'card.noCorrection'))
+                    : [
+                      h('div', { className: 'dtp-card-correction dtp-card-correction-head' },
+                        tt(t, 'card.correctedCount', { n: corrections })),
+                      ...rows.map((item, rowIndex) => h(
+                        'div',
+                        { className: 'dtp-card-correction', key: 'correction-' + rowIndex },
+                        tt(t, 'card.correctionRow', {
+                          i: rowIndex + 1,
+                          from: Math.round(Number(item.from) || 0),
+                          to: Math.round(Number(item.to) || 0),
+                        }),
+                      )),
+                    ],
+                )
+                : null,
             ),
           )
         })
@@ -1600,7 +1706,14 @@ window.__ModuleLoader__.load({
               'div',
               { className: 'dtp-panel-head' },
               h('span', { className: 'dtp-panel-title' }, tt(t, 'tab.heading')),
-              h('span', { className: 'dtp-panel-count' }, tt(t, 'tab.count', { n: steps.length })),
+              h(
+                'div',
+                { className: 'dtp-panel-meta' },
+                h('span', { className: 'dtp-panel-count' }, tt(t, 'tab.count', { n: steps.length })),
+                totalMs > 0
+                  ? h('span', { className: 'dtp-panel-duration' }, tt(t, 'tab.duration', { t: totalTimeText(t, totalMs) }))
+                  : null,
+              ),
             ),
             steps.length === 0
               ? h('div', { className: 'dtp-panel-empty' }, tt(t, 'tab.empty'))
