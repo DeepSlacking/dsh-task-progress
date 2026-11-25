@@ -84,6 +84,16 @@ test('the rail is bounded to the newest milestones', () => {
   assert.ok(rail.steps[0].endedAt > 0)
 })
 
+test('node numbers keep counting after the rail is trimmed', () => {
+  let rail = blankRail(1, 1_000)
+  for (let index = 0; index < RAIL_MAX + 5; index += 1) {
+    rail = observe(rail, `里程碑 ${index}`, Math.min(100, index * 2), 'execute', 10_000 + index * 1_000)
+  }
+  assert.equal(rail.steps.length, RAIL_MAX)
+  assert.equal(rail.steps[0].seq, 5)
+  assert.equal(rail.steps[rail.steps.length - 1].seq, RAIL_MAX + 4)
+})
+
 test('a milestone below the previous one asks for a rescale', () => {
   let rail = observe(undefined, '定位问题', 20, 'execute', 20_000)
   rail = observe(rail, '定位问题', 60, 'execute', 30_000)

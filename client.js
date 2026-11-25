@@ -51,6 +51,12 @@ window.__ModuleLoader__.load({
       return anchor
     }
 
+    /** A node's display number: the Host's stable seq when present. */
+    function stepNumber(step, fallback) {
+      const value = step !== null && step !== undefined ? Number(step.seq) : NaN
+      return Number.isFinite(value) ? value : fallback
+    }
+
     const NS = 'task-progress'
     /** A task is "stale" after this long without a new checkpoint while running. */
     const STALE_MS = 90_000
@@ -82,6 +88,10 @@ window.__ModuleLoader__.load({
         'progress.analyzing': '正在分析本轮进展',
         'progress.etaRange': '约 {a}–{b} 分钟',
         'step.index': '节点 {n}',
+        'step.clusterAria': '节点 {a} 到 {b}，共 {n} 个',
+        'step.clusterHead': '节点 {a}–{b}',
+        'step.clusterBadge': '{n} 个节点',
+        'step.more': '还有 {n} 个',
         'step.percent': '{n}%',
         'step.node': '节点 {n}：{x}，耗时 {t}',
         'step.duration': '耗时 {t}',
@@ -119,10 +129,21 @@ window.__ModuleLoader__.load({
         'settings.color.desc': '支持 #hex、rgb()、var(--xxx)；清空则跟随主题强调色。',
         'settings.color.value': '颜色值',
         'settings.color.auto': '跟随主题',
+        'settings.color.bar': '进度条颜色',
         'settings.font': '说明文字字号',
         'settings.font.desc': '进度条下方说明行的字号，9–24 像素，默认 12。',
         'settings.listFont': '节点列表字号',
         'settings.listFont.desc': '展开列表的行字号，9–24 像素，默认 11。',
+        'settings.nodeSize': '节点大小',
+        'settings.nodeSize.desc': '4–16 像素，默认 6；小于进度条高度时会在进度条内部。',
+        'settings.nodeDoneRing': '已完成节点边缘',
+        'settings.nodeDoneRing.desc': '边缘颜色，默认跟随背景色。',
+        'settings.nodeDoneCenter': '已完成节点中心',
+        'settings.nodeDoneCenter.desc': '中心颜色，默认与进度条同色。',
+        'settings.nodeLiveRing': '进行中节点边缘',
+        'settings.nodeLiveRing.desc': '边缘颜色，默认与进度条同色。',
+        'settings.nodeLiveCenter': '进行中节点中心',
+        'settings.nodeLiveCenter.desc': '中心颜色，默认跟随背景色。',
         'settings.preview': '预览：执行中 · 接入事件 · 下一步：打磨',
         'settings.preview.done': '预览：节点已完成',
         'settings.preview.live': '预览：正在调整外观',
@@ -155,6 +176,10 @@ window.__ModuleLoader__.load({
         'progress.analyzing': 'Reviewing this turn',
         'progress.etaRange': '~{a}–{b} min left',
         'step.index': 'Node {n}',
+        'step.clusterAria': 'Nodes {a} to {b}, {n} total',
+        'step.clusterHead': 'Nodes {a}–{b}',
+        'step.clusterBadge': '{n} nodes',
+        'step.more': '{n} more',
         'step.percent': '{n}%',
         'step.node': 'Node {n}: {x}, took {t}',
         'step.duration': 'took {t}',
@@ -192,10 +217,21 @@ window.__ModuleLoader__.load({
         'settings.color.desc': 'Accepts #hex, rgb(), var(--x); clear it to use the theme accent.',
         'settings.color.value': 'Color value',
         'settings.color.auto': 'Theme accent',
+        'settings.color.bar': 'Bar color',
         'settings.font': 'Explanation size',
         'settings.font.desc': 'Font size of the line under the bar, 9–24 px, default 12.',
         'settings.listFont': 'Node list font size',
         'settings.listFont.desc': 'Font size of the expanded list rows, 9–24 px, default 11.',
+        'settings.nodeSize': 'Node size',
+        'settings.nodeSize.desc': '4–16 px, default 6; smaller nodes sit inside a taller bar.',
+        'settings.nodeDoneRing': 'Finished node edge',
+        'settings.nodeDoneRing.desc': 'Edge color; defaults to the background color.',
+        'settings.nodeDoneCenter': 'Finished node center',
+        'settings.nodeDoneCenter.desc': 'Center color; defaults to the same color as the bar.',
+        'settings.nodeLiveRing': 'Running node edge',
+        'settings.nodeLiveRing.desc': 'Edge color; defaults to the same color as the bar.',
+        'settings.nodeLiveCenter': 'Running node center',
+        'settings.nodeLiveCenter.desc': 'Center color; defaults to the background color.',
         'settings.preview': 'Preview: executing · wiring events · next: polish',
         'settings.preview.done': 'Preview: node finished',
         'settings.preview.live': 'Preview: tuning the appearance',
@@ -282,15 +318,13 @@ window.__ModuleLoader__.load({
       // negative margins keep the row's layout height unchanged while the
       // track grows vertically on hover.
       '.dtp-bar{position:relative;flex:1 1 auto;min-width:0;display:flex;align-items:center;',
-      'padding-block:7px;margin-block:-7px;transform-origin:center;',
-      'transition:transform .22s cubic-bezier(.2,.7,.3,1);}',
+      'padding-block:7px;margin-block:-7px;}',
       '.dtp-track{position:relative;flex:1 1 auto;min-width:0;width:100%;height:var(--dtp-bar-height,6px);',
       'border-radius:999px;background:var(--dsw-alias-interactive-bg-hover);overflow:hidden;',
       'transform-origin:center;transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s ease;}',
-      // Hover: the whole bar grows a touch, the track grows less than it used to,
-      // and a white glow plus a soft top highlight give the pill some material.
-      '.dtp-bar:hover{transform:scale(1.015);z-index:1;}',
-      '.dtp-bar:hover .dtp-track{transform:scaleY(1.5);',
+      // Hover belongs to the rail itself: moving over a node must not resize the
+      // bar underneath it.
+      '.dtp-track:hover{transform:scale(1.015,1.5);',
       'box-shadow:0 0 0 2px rgba(255,255,255,.55),0 6px 20px -6px rgba(255,255,255,.9),',
       'inset 0 1px 0 rgba(255,255,255,.6),',
       '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 40%,transparent);}',
@@ -305,18 +339,35 @@ window.__ModuleLoader__.load({
       // Milestone nodes are a sibling overlay, so the track can keep its own
       // overflow clip for the fill.
       '.dtp-nodes{position:absolute;inset:0;pointer-events:none;}',
-      '.dtp-node{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;padding:0;',
-      'border:0;background:transparent;border-radius:50%;pointer-events:auto;cursor:pointer;',
+      '.dtp-node{position:absolute;top:50%;width:calc(var(--dtp-node-size,6px) + 8px);',
+      'height:calc(var(--dtp-node-size,6px) + 8px);',
+      'margin:calc((var(--dtp-node-size,6px) + 8px) / -2) 0 0 calc((var(--dtp-node-size,6px) + 8px) / -2);',
+      'padding:0;border:0;background:transparent;border-radius:50%;pointer-events:auto;cursor:pointer;',
       'display:inline-flex;align-items:center;justify-content:center;color:inherit;}',
       '.dtp-node:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:2px;}',
-      '.dtp-node-dot{display:block;width:8px;height:8px;border-radius:50%;box-sizing:border-box;',
-      'background:var(--dtp-bar-color,var(--dsw-alias-state-business-primary));',
-      'box-shadow:0 0 0 2px var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff));',
+      // The dot is sized on its own, centered on the rail: when it is smaller than
+      // the bar height it sits inside the bar instead of matching it.
+      '.dtp-node-dot{display:block;width:var(--dtp-node-size,6px);height:var(--dtp-node-size,6px);',
+      'border-radius:50%;box-sizing:border-box;',
+      'background:var(--dtp-node-done-center,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)));',
+      'box-shadow:0 0 0 2px var(--dtp-node-done-ring,var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff)));',
       'transition:transform .15s ease;}',
       '.dtp-node-current{z-index:2}',
-      '.dtp-node-current .dtp-node-dot{width:9px;height:9px;',
-      'background:var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1,#fff));',
-      'border:2px solid var(--dtp-bar-color,var(--dsw-alias-state-business-primary));}',
+      '.dtp-node-current .dtp-node-dot{position:relative;',
+      'width:calc(var(--dtp-node-size,6px) + 1px);height:calc(var(--dtp-node-size,6px) + 1px);',
+      'background:var(--dtp-node-live-center,var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1,#fff)));',
+      'border:2px solid var(--dtp-node-live-ring,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)));',
+      'box-shadow:0 0 0 2px color-mix(in srgb,var(--dtp-node-live-ring,var(--dtp-bar-color,var(--dsw-alias-state-business-primary))) 24%,transparent);}',
+      // A slow ripple marks the node the task is currently on.
+      '.dtp-node-current .dtp-node-dot::after{content:\'\';position:absolute;inset:-4px;border-radius:50%;',
+      'pointer-events:none;',
+      'border:2px solid var(--dtp-node-live-ring,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)));',
+      'opacity:0;animation:dtp-node-pulse 1.8s ease-out infinite;}',
+      '@keyframes dtp-node-pulse{0%{transform:scale(.85);opacity:.55}70%{transform:scale(1.55);opacity:0}100%{transform:scale(1.55);opacity:0}}',
+      '.dtp-node-count{position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:9px;line-height:1;',
+      'color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums;pointer-events:none;}',
+      '.dtp-node-cluster .dtp-node-dot{box-shadow:0 0 0 2px var(--dtp-node-done-ring,var(--dsw-alias-bg-layer-1,#fff)),',
+      '0 0 0 3px color-mix(in srgb,var(--dtp-node-done-center,var(--dtp-bar-color,var(--dsw-alias-state-business-primary))) 35%,transparent);}',
       '.dtp-node:hover .dtp-node-dot,.dtp-node:focus-visible .dtp-node-dot{transform:scale(1.35);}',
       '.dtp-tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);',
       'display:flex;flex-direction:column;gap:3px;width:max-content;max-width:280px;padding:8px 10px;',
@@ -378,7 +429,8 @@ window.__ModuleLoader__.load({
       '@keyframes dtp-pulse{0%,100%{opacity:1}50%{opacity:.5}}',
       '@keyframes dtp-slide{0%{transform:translateX(-110%)}100%{transform:translateX(300%)}}',
       '@media (prefers-reduced-motion:reduce){',
-      '.dtp-bar,.dtp-track,.dtp-node-dot,.dtp-set-preview-bar,.dtp-set-track{transition:none}',
+      '.dtp-track,.dtp-node-dot,.dtp-set-track{transition:none}',
+      '.dtp-node-current .dtp-node-dot::after{animation:none}',
       '.dtp-dock[data-stale] .dtp-fill,.dtp-dock[data-evaluating] .dtp-fill,.dtp-scan{animation:none}}',
     ].join('')
 
@@ -540,7 +592,7 @@ window.__ModuleLoader__.load({
     }
 
     /** Defaults when neither the settings page, the Host row config, nor CSS set a knob. */
-    const STYLE_DEFAULTS = Object.freeze({ barHeight: 6, barColor: '', textFontSize: 12, listFontSize: 11 })
+    const STYLE_DEFAULTS = Object.freeze({ barHeight: 6, barColor: '', textFontSize: 12, listFontSize: 11, nodeSize: 6, nodeDoneRing: '', nodeDoneCenter: '', nodeLiveRing: '', nodeLiveCenter: '' })
     /** localStorage key of the appearance overrides edited in Settings. */
     const STYLE_KEY = 'dsh-task-progress.style.v1'
 
@@ -556,6 +608,10 @@ window.__ModuleLoader__.load({
         if (typeof parsed.barColor === 'string' && parsed.barColor !== '') out.barColor = parsed.barColor.slice(0, 40)
         if (Number.isFinite(parsed.textFontSize) && parsed.textFontSize > 0) out.textFontSize = Math.min(24, Math.round(parsed.textFontSize))
         if (Number.isFinite(parsed.listFontSize) && parsed.listFontSize > 0) out.listFontSize = Math.min(24, Math.max(9, Math.round(parsed.listFontSize)))
+        if (Number.isFinite(parsed.nodeSize) && parsed.nodeSize > 0) out.nodeSize = Math.min(16, Math.max(4, Math.round(parsed.nodeSize)))
+        for (const key of ['nodeDoneRing', 'nodeDoneCenter', 'nodeLiveRing', 'nodeLiveCenter']) {
+          if (typeof parsed[key] === 'string' && parsed[key] !== '') out[key] = parsed[key].slice(0, 40)
+        }
         return out
       } catch {
         return {}
@@ -612,18 +668,34 @@ window.__ModuleLoader__.load({
       const height = l.barHeight > 0 ? l.barHeight : h.barHeight > 0 ? h.barHeight : 0
       const font = l.textFontSize > 0 ? l.textFontSize : h.textFontSize > 0 ? h.textFontSize : 0
       const listFont = l.listFontSize > 0 ? l.listFontSize : h.listFontSize > 0 ? h.listFontSize : 0
+      const nodeSize = l.nodeSize > 0 ? l.nodeSize : h.nodeSize > 0 ? h.nodeSize : 0
       const color = typeof l.barColor === 'string' && l.barColor !== ''
         ? l.barColor
         : typeof h.barColor === 'string' ? h.barColor : ''
+      const pick = key => (typeof l[key] === 'string' && l[key] !== '' ? l[key] : (typeof h[key] === 'string' ? h[key] : ''))
+      const doneRing = pick('nodeDoneRing')
+      const doneCenter = pick('nodeDoneCenter')
+      const liveRing = pick('nodeLiveRing')
+      const liveCenter = pick('nodeLiveCenter')
       return {
         barHeight: height > 0 ? height : STYLE_DEFAULTS.barHeight,
         barColor: color,
         textFontSize: font > 0 ? font : STYLE_DEFAULTS.textFontSize,
         listFontSize: listFont > 0 ? listFont : STYLE_DEFAULTS.listFontSize,
+        nodeSize: nodeSize > 0 ? nodeSize : STYLE_DEFAULTS.nodeSize,
+        nodeDoneRing: doneRing,
+        nodeDoneCenter: doneCenter,
+        nodeLiveRing: liveRing,
+        nodeLiveCenter: liveCenter,
         explicitHeight: height > 0,
         explicitColor: color !== '',
         explicitFont: font > 0,
         explicitListFont: listFont > 0,
+        explicitNodeSize: nodeSize > 0,
+        explicitDoneRing: doneRing !== '',
+        explicitDoneCenter: doneCenter !== '',
+        explicitLiveRing: liveRing !== '',
+        explicitLiveCenter: liveCenter !== '',
       }
     }
 
@@ -839,6 +911,11 @@ window.__ModuleLoader__.load({
         if (tuned.explicitColor) styleVars['--dtp-bar-color'] = tuned.barColor
         if (tuned.explicitFont) styleVars['--dtp-font-size'] = `${tuned.textFontSize}px`
         if (tuned.explicitListFont) styleVars['--dtp-list-font-size'] = `${tuned.listFontSize}px`
+        if (tuned.explicitNodeSize) styleVars['--dtp-node-size'] = `${tuned.nodeSize}px`
+        if (tuned.explicitDoneRing) styleVars['--dtp-node-done-ring'] = tuned.nodeDoneRing
+        if (tuned.explicitDoneCenter) styleVars['--dtp-node-done-center'] = tuned.nodeDoneCenter
+        if (tuned.explicitLiveRing) styleVars['--dtp-node-live-ring'] = tuned.nodeLiveRing
+        if (tuned.explicitLiveCenter) styleVars['--dtp-node-live-center'] = tuned.nodeLiveCenter
         const fill = Math.max(2, evaluating ? 0 : Math.min(100, percent))
         // The rail is per turn: a milestone the evaluator superseded is a
         // completed node; the milestone on screen now is the outlined head.
@@ -886,6 +963,7 @@ window.__ModuleLoader__.load({
           ? { step: steps[steps.length - 1], index: steps.length - 1 }
           : undefined
         const currentIndex = open !== undefined ? open.index : steps.length
+        const currentNumber = open !== undefined ? stepNumber(open.step, currentIndex) : currentIndex
         const currentLabel = progress.milestone || ''
         const currentSince = open !== undefined && open.step.endedAt === 0 && open.step.label === currentLabel
           ? open.step.at
@@ -896,7 +974,7 @@ window.__ModuleLoader__.load({
           : (open !== undefined && open.step.endedAt === 0 ? open.step.label : '')
         const listCurrent = !done && listCurrentLabel !== ''
           ? {
-            index: currentIndex,
+            index: currentNumber,
             label: listCurrentLabel,
             phase: currentLabel !== '' ? progress.phase : (open !== undefined ? open.step.phase : progress.phase),
             since: currentSince,
@@ -904,21 +982,26 @@ window.__ModuleLoader__.load({
           : undefined
         const listDone = closedEntries
         const listTotal = listDone.length + (listCurrent !== undefined ? 1 : 0)
-        const bucketKey = value => Math.round(Number(value || 0) * 2) / 2
-        const buckets = new Map()
+        // A rail can hold a hundred nodes after a long task. Spreading every
+        // dot by rank would throw them outside the bar, so nodes that share a
+        // narrow percent window are grouped: up to three stay individual,
+        // larger groups collapse into one counted node.
+        const bucketWidth = closed.length > 80 ? 2 : closed.length > 40 ? 1 : 0.5
+        const bucketKey = value => Math.round(Number(value || 0) / bucketWidth) * bucketWidth
+        const groups = new Map()
         for (const entry of closed) {
           const key = bucketKey(entry.position)
-          const bucket = buckets.get(key)
-          if (bucket === undefined) buckets.set(key, [entry])
-          else bucket.push(entry)
+          const group = groups.get(key)
+          if (group === undefined) groups.set(key, [entry])
+          else group.push(entry)
         }
+        const groupOf = entry => groups.get(bucketKey(entry.position)) ?? [entry]
         const currentKey = bucketKey(currentPercent)
         const nodeOffset = entry => {
-          const key = bucketKey(entry.position)
-          const bucket = buckets.get(key) ?? []
-          const rank = bucket.indexOf(entry)
-          let offset = (rank - (bucket.length - 1) / 2) * 16
-          if (showCurrent && key === currentKey) offset -= 16
+          const group = groupOf(entry)
+          const rank = group.indexOf(entry)
+          let offset = (rank - (group.length - 1) / 2) * 16
+          if (showCurrent && bucketKey(entry.position) === currentKey) offset -= 16
           // Never push a dot past the rounded rail's ends.
           if (entry.position >= 97.5 && offset > 0) offset = 0
           if (entry.position <= 2.5 && offset < 0) offset = 0
@@ -927,6 +1010,9 @@ window.__ModuleLoader__.load({
         const nodes = []
         const edge = position => (position < 16 ? 'start' : position > 84 ? 'end' : undefined)
         for (const entry of closed) {
+          const group = groupOf(entry)
+          const cluster = group.length > 3
+          if (cluster && group[0] !== entry) continue
           const { step, index } = entry
           const position = railPosition(entry.position)
           const label = step.label || ''
@@ -935,20 +1021,24 @@ window.__ModuleLoader__.load({
           const meta = [tt(t, `phase.${step.phase}`), tt(t, 'step.percent', { n: Math.round(step.percent) })]
           meta.push(tt(t, 'step.duration', { t: took }))
           if (finished !== '') meta.push(tt(t, 'step.finished', { t: finished }))
-          const key = `step-${index}`
+          const key = cluster ? `cluster-${bucketKey(entry.position)}` : `step-${index}`
           const activeNode = hovered === key
+          const first = cluster ? stepNumber(group[0].step, group[0].index) : index
+          const last = cluster ? stepNumber(group[group.length - 1].step, group[group.length - 1].index) : index
           nodes.push(h(
             'button',
             {
               key,
               type: 'button',
-              className: 'dtp-node',
+              className: cluster ? 'dtp-node dtp-node-cluster' : 'dtp-node',
               style: {
                 left: `${position}%`,
-                transform: nodeOffset(entry) === 0 ? undefined : `translateX(${nodeOffset(entry)}px)`,
+                transform: cluster || nodeOffset(entry) === 0 ? undefined : `translateX(${nodeOffset(entry)}px)`,
               },
               'data-edge': edge(position),
-              'aria-label': tt(t, 'step.node', { n: index, x: label, t: took }),
+              'aria-label': cluster
+                ? tt(t, 'step.clusterAria', { a: first, b: last, n: group.length })
+                : tt(t, 'step.node', { n: stepNumber(step, index), x: label, t: took }),
               onMouseDown: event => event.preventDefault(),
               onMouseEnter: () => setHovered(key),
               onMouseLeave: () => setHovered(value => (value === key ? null : value)),
@@ -956,6 +1046,7 @@ window.__ModuleLoader__.load({
               onBlur: () => setHovered(value => (value === key ? null : value)),
             },
             h('span', { className: 'dtp-node-dot' }),
+            cluster ? h('span', { className: 'dtp-node-count', 'aria-hidden': 'true' }, String(group.length)) : null,
             activeNode
               ? h(
                 'span',
@@ -963,17 +1054,30 @@ window.__ModuleLoader__.load({
                 h(
                   'span',
                   { className: 'dtp-tip-head' },
-                  h('span', null, tt(t, 'step.index', { n: index })),
-                  h('span', { className: 'dtp-tip-badge' }, tt(t, 'done')),
+                  h('span', null, cluster
+                    ? tt(t, 'step.clusterHead', { a: first, b: last })
+                    : tt(t, 'step.index', { n: stepNumber(step, index) })),
+                  h('span', { className: 'dtp-tip-badge' }, cluster ? tt(t, 'step.clusterBadge', { n: group.length }) : tt(t, 'done')),
                 ),
-                h('span', { className: 'dtp-tip-main' }, label),
-                h('span', { className: 'dtp-tip-meta' }, meta.join(' · ')),
+                cluster
+                  ? h(
+                    React.Fragment,
+                    null,
+                    ...group.slice(0, 5).map((member, memberIndex) => h(
+                      'span',
+                      { className: 'dtp-tip-sub', key: `member-${memberIndex}` },
+                      `${tt(t, 'step.index', { n: stepNumber(member.step, member.index) })}：${member.step.label || ''} · ${Math.round(member.step.percent)}%`,
+                    )),
+                    group.length > 5 ? h('span', { className: 'dtp-tip-meta' }, tt(t, 'step.more', { n: group.length - 5 })) : null,
+                  )
+                  : h('span', { className: 'dtp-tip-main' }, label),
+                cluster ? null : h('span', { className: 'dtp-tip-meta' }, meta.join(' · ')),
               )
               : null,
           ))
         }
         if (showCurrent) {
-          const index = currentIndex
+          const index = currentNumber
           const position = railPosition(progress.percent)
           const took = durationText(t, Math.max(0, now - currentSince))
           const key = 'current'
@@ -1115,7 +1219,7 @@ window.__ModuleLoader__.load({
                   return h(
                     'div',
                     { className: 'dtp-list-row', key: `list-${index}` },
-                    h('span', { className: 'dtp-list-index' }, tt(t, 'step.index', { n: index })),
+                    h('span', { className: 'dtp-list-index' }, tt(t, 'step.index', { n: stepNumber(step, index) })),
                     h('span', { className: 'dtp-list-badge' }, tt(t, 'done')),
                     h('span', { className: 'dtp-list-colon' }, tt(t, 'list.colon')),
                     h('span', { className: 'dtp-list-label', title: step.label }, step.label),
@@ -1260,6 +1364,8 @@ window.__ModuleLoader__.load({
       '.dtp-set-unit{font-size:12px;color:var(--dsw-alias-label-tertiary);}',
       '.dtp-set-color{width:34px;height:30px;padding:2px;border-radius:8px;cursor:pointer;',
       'border:0.5px solid var(--dsw-alias-border-l2);background:transparent;}',
+      '.dtp-set-swatch{flex:none;width:12px;height:12px;border-radius:50%;',
+      'border:1px solid var(--dsw-alias-border-l1);box-sizing:border-box;}',
       '.dtp-set-text-input{width:150px;height:30px;box-sizing:border-box;padding:0 8px;border-radius:8px;',
       'border:0.5px solid var(--dsw-alias-border-l2);background:transparent;color:var(--dsw-alias-label-primary);',
       'font:inherit;font-size:13px;}',
@@ -1272,9 +1378,7 @@ window.__ModuleLoader__.load({
       'padding-block:7px;margin-block:-7px;}',
       '.dtp-set-preview-bar .dtp-set-track{flex:1 1 auto;width:100%;transform-origin:center;',
       'transition:transform .22s cubic-bezier(.2,.7,.3,1),box-shadow .22s ease;}',
-      '.dtp-set-preview-bar{transform-origin:center;transition:transform .22s cubic-bezier(.2,.7,.3,1);}',
-      '.dtp-set-preview-bar:hover{transform:scale(1.015);}',
-      '.dtp-set-preview-bar:hover .dtp-set-track{transform:scaleY(1.5);',
+      '.dtp-set-preview-bar .dtp-set-track:hover{transform:scale(1.015,1.5);',
       'box-shadow:0 0 0 2px rgba(255,255,255,.55),0 6px 20px -6px rgba(255,255,255,.9),',
       'inset 0 1px 0 rgba(255,255,255,.6),',
       '0 2px 12px -2px color-mix(in srgb,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)) 40%,transparent);}',
@@ -1366,8 +1470,35 @@ window.__ModuleLoader__.load({
           store.set({ [key]: value })
         }
         const commitColor = event => store.set({ barColor: String(event.target.value).slice(0, 40) })
+        const colorRow = (title, desc, key, value, fallback) => row(title, desc, [
+          fallback !== undefined
+            ? h('span', { className: 'dtp-set-swatch', style: { background: fallback }, title: tt(t, 'settings.color.bar'), 'aria-hidden': 'true' })
+            : null,
+          h('input', {
+            key: `sw-${key}`, className: 'dtp-set-color', type: 'color',
+            value: /^#[0-9a-fA-F]{6}$/u.test(value) ? value : (/^#[0-9a-fA-F]{6}$/u.test(fallback ?? '') ? fallback : '#2f6df6'),
+            'aria-label': title,
+            onChange: event => store.set({ [key]: event.target.value }),
+          }),
+          h('input', {
+            key: `tx-${key}`, className: 'dtp-set-text-input', type: 'text', spellCheck: false,
+            defaultValue: value, placeholder: tt(t, 'settings.color.auto'),
+            'aria-label': title,
+            onBlur: event => store.set({ [key]: String(event.target.value).slice(0, 40) }),
+            onKeyDown: blurOnEnter,
+          }),
+        ])
         const blurOnEnter = event => { if (event.key === 'Enter') event.currentTarget.blur() }
         const color = tuned.barColor === '' ? 'var(--dsw-alias-state-business-primary)' : tuned.barColor
+        const barColorHex = /^#[0-9a-fA-F]{6}$/u.test(tuned.barColor) ? tuned.barColor : '#2f6df6'
+        const previewVars = {
+          '--dtp-bar-color': color,
+          '--dtp-node-size': `${tuned.nodeSize}px`,
+          ...(tuned.explicitDoneRing ? { '--dtp-node-done-ring': tuned.nodeDoneRing } : {}),
+          ...(tuned.explicitDoneCenter ? { '--dtp-node-done-center': tuned.nodeDoneCenter } : {}),
+          ...(tuned.explicitLiveRing ? { '--dtp-node-live-ring': tuned.nodeLiveRing } : {}),
+          ...(tuned.explicitLiveCenter ? { '--dtp-node-live-center': tuned.nodeLiveCenter } : {}),
+        }
         const row = (title, desc, control) => h('div', { className: 'dtp-set-row', key: title },
           h('div', { className: 'dtp-set-text' },
             h('div', { className: 'dtp-set-title' }, title),
@@ -1467,10 +1598,23 @@ window.__ModuleLoader__.load({
               }),
               h('span', { key: 'u', className: 'dtp-set-unit' }, 'px'),
             ]),
+            row(tt(t, 'settings.nodeSize'), tt(t, 'settings.nodeSize.desc'), [
+              h('input', {
+                key: `n${tuned.nodeSize}`, className: 'dtp-set-num', type: 'number',
+                min: 4, max: 16, step: 1, defaultValue: tuned.nodeSize,
+                'aria-label': tt(t, 'settings.nodeSize'),
+                onBlur: commitNumber('nodeSize', 4, 16), onKeyDown: blurOnEnter,
+              }),
+              h('span', { key: 'u', className: 'dtp-set-unit' }, 'px'),
+            ]),
+            colorRow(tt(t, 'settings.nodeDoneRing'), tt(t, 'settings.nodeDoneRing.desc'), 'nodeDoneRing', tuned.nodeDoneRing),
+            colorRow(tt(t, 'settings.nodeDoneCenter'), tt(t, 'settings.nodeDoneCenter.desc'), 'nodeDoneCenter', tuned.nodeDoneCenter, barColorHex),
+            colorRow(tt(t, 'settings.nodeLiveRing'), tt(t, 'settings.nodeLiveRing.desc'), 'nodeLiveRing', tuned.nodeLiveRing, barColorHex),
+            colorRow(tt(t, 'settings.nodeLiveCenter'), tt(t, 'settings.nodeLiveCenter.desc'), 'nodeLiveCenter', tuned.nodeLiveCenter),
             h('div', { className: 'dtp-set-preview' },
               h(
                 'div',
-                { className: 'dtp-set-preview-bar', style: { '--dtp-bar-color': color } },
+                { className: 'dtp-set-preview-bar', style: previewVars },
                 h('div', { className: 'dtp-set-track', style: { height: `${tuned.barHeight}px` } },
                   h('div', {
                     className: 'dtp-set-fill',
@@ -1602,9 +1746,13 @@ window.__ModuleLoader__.load({
         const done = progress !== undefined && progress !== null && progress.done === true
           && rail !== null && rail !== undefined && progress.turn === rail.turn
         const doneAt = done ? (progress.updatedAt > 0 ? progress.updatedAt : Date.now()) : 0
-        const totalMs = progress !== undefined && progress !== null && progress.startedAt > 0
-          ? Math.max(0, ((done === true && progress.updatedAt > 0 ? progress.updatedAt : Date.now()) - progress.startedAt))
+        const railStartedAt = rail !== null && rail !== undefined && Number(rail.startedAt) > 0
+          ? Number(rail.startedAt)
           : 0
+        const railEndAt = rail !== null && rail !== undefined && Number(rail.closedAt) > 0
+          ? Number(rail.closedAt)
+          : (done === true ? doneAt : Date.now())
+        const totalMs = railStartedAt > 0 ? Math.max(0, railEndAt - railStartedAt) : 0
         const steps = rail !== null && rail !== undefined && Array.isArray(rail.steps)
           ? rail.steps.filter(step => step !== null && typeof step === 'object')
           : []
@@ -1653,7 +1801,7 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 { className: 'dtp-card-head' },
-                h('span', { className: 'dtp-card-index' }, tt(t, 'step.index', { n: index })),
+                h('span', { className: 'dtp-card-index' }, tt(t, 'step.index', { n: stepNumber(step, index) })),
                 h(
                   'span',
                   { className: live ? 'dtp-card-badge dtp-card-badge-live' : 'dtp-card-badge' },

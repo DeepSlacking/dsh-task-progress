@@ -45,7 +45,10 @@ const JUDGE_ROUTE = '/api/dsh-task-progress/judgements'
 const SETTINGS_ROUTE = '/api/dsh-task-progress/settings'
 
 /** How often the sweep looks for turns that need an estimate. */
-const SWEEP_MS = 15_000
+const SWEEP_MS = 4_000
+
+/** Finished sessions keep their rail for the node panel; this bounds that cache. */
+const RAIL_KEEP_MAX = 400
 
 /** Deadline of one evaluator call. */
 const JUDGE_TIMEOUT_MS = 25_000
@@ -269,6 +272,7 @@ export async function apply(ctx, config) {
   // One milestone rail per session, also keyed by turn. A new milestone closes
   // the open step, which is what the page draws as a completed node.
   const rails = new Map()
+    const lastSeenAt = new Map()
   const inFlight = new Set()
   const lastCallAt = new Map()
   // Sessions whose newest milestone fell below the previous one, and the last
@@ -420,7 +424,6 @@ export async function apply(ctx, config) {
         }
         if (state === undefined || state === null || state.turn <= 0) {
           judgements.delete(session.id)
-          rails.delete(session.id)
           pendingRescore.delete(session.id)
           continue
         }
@@ -438,11 +441,11 @@ export async function apply(ctx, config) {
           continue
         }
         const now = Date.now()
+        lastSeenAt.set(session.id, now)
         // A quick question needs no second opinion and no rail: skip the judge
         // call (that is the token saving), the observation, and any stale rail.
         if (isSimpleTurn(state, now, settings.simple)) {
           judgements.delete(session.id)
-          rails.delete(session.id)
           pendingRescore.delete(session.id)
           continue
         }
@@ -481,8 +484,24 @@ export async function apply(ctx, config) {
           }
         }
       }
+      // A session that disappears before its turn end (a finished subagent) still
+      // gets a closed rail: the last sweep that saw it is the best end time.
+      for (const [id, rail] of rails) {
+        if (liveIds.has(id) || rail.closedAt > 0) continue
+        const closed = closeRail(rail, lastSeenAt.get(id) ?? Date.now())
+        if (closed !== rail) rails.set(id, closed)
+        lastSeenAt.delete(id)
+      }
       for (const id of judgements.keys()) if (!liveIds.has(id)) judgements.delete(id)
-      for (const id of rails.keys()) if (!liveIds.has(id)) rails.delete(id)
+      // A subagent's session leaves the live store when it finishes, but the
+      // node panel should still show what it recorded; keep those rails and
+      // drop the oldest non-live ones only when the cache grows too large.
+      if (rails.size > RAIL_KEEP_MAX) {
+        for (const id of rails.keys()) {
+          if (rails.size <= RAIL_KEEP_MAX) break
+          if (!liveIds.has(id)) rails.delete(id)
+        }
+      }
       for (const id of pendingRescore) if (!liveIds.has(id)) pendingRescore.delete(id)
       for (const id of lastRescoreAt.keys()) if (!liveIds.has(id)) lastRescoreAt.delete(id)
       for (const id of lastRescoreKey.keys()) if (!liveIds.has(id)) lastRescoreKey.delete(id)
@@ -523,7 +542,9 @@ export async function apply(ctx, config) {
         // before the evaluator produced its first estimate (a model report).
         const railValues = {}
         for (const [id, rail] of rails) {
-          if (rail.steps.length > 0) railValues[id] = { turn: rail.turn, steps: rail.steps }
+          if (rail.steps.length > 0) {
+            railValues[id] = { turn: rail.turn, steps: rail.steps, startedAt: rail.startedAt ?? 0, closedAt: rail.closedAt ?? 0 }
+          }
         }
         res.writeHead(200, {
           'content-type': 'application/json; charset=utf-8',

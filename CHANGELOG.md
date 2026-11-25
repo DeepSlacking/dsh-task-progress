@@ -2,6 +2,28 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.8.0] - 2026-11-25
+
+### Added
+
+- Settings → Task progress: a node-size control (4–16 px) and four node colors — finished node edge and center, running node edge and center.
+- The running node carries a slow pulse ripple.
+- Node numbers use a stable `seq` from the Host, so they keep counting after the 100-node trim instead of restarting at 0.
+- A crowded rail groups nodes that share a narrow percent window into one counted node; hovering it lists the members instead of pushing dots outside the rail.
+- Finished sessions keep their rail (bounded cache of 400), so opening a finished subagent still shows the nodes it recorded; the sweep now samples every 4 s and closes a retained rail at the last time that session was seen.
+- The Right Sidebar total duration is computed from the rail's own turn clock and only appears when a rail exists, so a completed task keeps a fixed total instead of growing.
+
+### Changed
+
+- Node size now defaults to 6 px (was 8).
+- The finished-node center and the running-node edge default to the bar color; their Settings rows show that color as a swatch and say "same as the bar".
+- Hovering a node no longer enlarges the strip; the bar grows only when the pointer is on the rail itself.
+- Nodes keep their own size and stay centered on the rail, so a node smaller than a tall bar sits inside the bar instead of matching its height.
+
+### Fixed
+
+- The running node's edge no longer follows the finished node's ring color: its border, glow and pulse all use the running-edge color.
+
 ## [0.7.0] - 2026-11-24
 
 ### Added

@@ -35,10 +35,13 @@ Nodes belong to the current turn only and do not record earlier turns:
 
 - Whenever model self-report or the side-channel evaluator names a new "current node", the previous node counts as finished and leaves a **filled node** at the percentage where it was last seen.
 - The current node is an **outlined node** at the bar's current percentage.
+- The running node carries a slow pulse ripple (disabled by the system's reduced-motion preference).
 - Hovering any node opens a detail card: which node, finished / in progress, its **final percentage**, label and phase; finished nodes show the completion time and how long that segment took (from appearing to being replaced), the current node shows elapsed time and the *next step*.
 - Nodes are Tab-focusable and show the same detail on focus.
 - At most **100** nodes are kept per turn; older ones fade off the rail.
 - Nodes are numbered from **0**: the first finished node is "Node 0", with the current node next. Node 0 is always 0%: it covers the time before any work was recorded, when only the task description was known.
+- Node numbers come from the Host's stable `seq`: they keep counting after the 100-node trim instead of restarting at 0, and a crowded rail groups nodes into counted nodes whose hover card lists the members.
+- Subagent sessions record a rail too: the Host samples every 4 s and keeps finished sessions' rails (bounded to 400), so opening a finished subagent still shows its nodes.
 - Coincident nodes are nudged apart so every one stays hoverable.
 - Completed nodes stay on the rail at the percentage recorded when they closed — never spread evenly by node count. When the newest node's percentage does not rise above the previous one (≤), the Host attaches the turn's node list to its next side-channel evaluation and asks the model for the share of the current plan already completed (an anchor); the completed nodes are then rescaled onto it proportionally. Without an anchor the rail falls back to the local monotonic hold, so nodes never invert. Positions stay clamped to the bar and the current fill. The correction costs no extra request: it rides on the existing evaluator call, and only the request that detected a drop carries the node list.
 
@@ -133,6 +136,8 @@ When the Plugins page shows "N plugin updates available", open this plugin -> ve
 - Bar color: any CSS color (`#hex`, `rgb()`, `var(--x)`); empty follows the theme accent. Also used by the sidebar ring and the nodes
 - Caption font size: 9–24 px, default 12
 - Node list font size: 9–24 px, default 11 (the composer's expanded list); the Right Sidebar node cards carry no fixed size and inherit the Harness theme font and size
+- Node size: 4–16 px, default 6; nodes stay vertically centered and sit inside the rail when smaller than the bar
+- Node colors: finished edge/center and running edge/center (four settings); the finished center and running edge default to the bar color (shown as a swatch next to the control), while the others follow the background
 - Simple tasks: switch, max duration, max characters (see above)
 
 Precedence: **settings page > row config > theme default**. Row config lives in the profile's `cordis.patch.yml`:

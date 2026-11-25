@@ -256,8 +256,8 @@ test('the settings preview grows on hover and opens a sample node card', async (
   let tree = renderSettings()
   const bar = byClass(tree, 'dtp-set-preview-bar')[0]
   assert.ok(bar, 'preview bar rendered')
-  assert.ok(textOf(tree).includes('.dtp-set-preview-bar:hover .dtp-set-track{transform:scaleY(1.5)'), 'preview hover scale css')
-  assert.ok(textOf(tree).includes('.dtp-set-preview-bar:hover{transform:scale(1.015)'), 'preview grows as a whole')
+  assert.ok(textOf(tree).includes('.dtp-set-preview-bar .dtp-set-track:hover{transform:scale(1.015,1.5)'), 'the track grows on hover')
+  assert.ok(!textOf(tree).includes('.dtp-set-preview-bar:hover{'), 'hovering a sample node does not grow the bar')
   assert.ok(textOf(tree).includes('rgba(255,255,255,.55)'), 'preview hover carries a white glow')
   const nodes = byClass(tree, 'dtp-node')
   assert.equal(nodes.length, 2)
@@ -598,9 +598,17 @@ test('a completed node without corrections says so when expanded', async () => {
   assert.match(textOf(byClass(tree, 'dtp-card')[0]), /无需矫正/)
 })
 
+test('the node panel numbers nodes with the Host seq', async () => {
+  const { store } = fixture()
+  store.rails['session-1'].steps[0].seq = 105
+  const { renderPanel } = await loadDock(store)
+  assert.match(textOf(byClass(renderPanel(), 'dtp-card')[0]), /节点 105/)
+})
+
 test('the node panel header shows the task total duration', async () => {
   const { store } = fixture()
   const now = Date.now()
+  store.rails['session-1'].startedAt = now - 600_000
   const { renderPanel } = await loadDock(store, {
     byId: {
       'session-1': {
@@ -612,6 +620,89 @@ test('the node panel header shows the task total duration', async () => {
     projectionsBySession: {},
   })
   assert.match(textOf(renderPanel()), /总用时 1[01]分/)
+})
+
+test('more than a hundred nodes collapse crowded positions into counted clusters', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const steps = []
+  for (let index = 0; index < 120; index += 1) {
+    steps.push({
+      label: `里程碑 ${index}`,
+      percent: Math.min(90, Math.round(index / 2)),
+      phase: 'execute',
+      at: now - 500_000 + index * 1_000,
+      endedAt: now - 400_000 + index * 1_000,
+      durationMs: 1_000,
+      seq: 100 + index,
+    })
+  }
+  steps.push({ label: '当前', percent: 90, phase: 'execute', at: now, endedAt: 0, durationMs: 0, seq: 220 })
+  store.rails['session-1'] = { turn: 4, startedAt: now - 600_000, steps }
+  const { render } = await loadDock(store)
+  let tree = render()
+  const nodes = byClass(tree, 'dtp-node')
+  assert.ok(nodes.length < 60, 'crowded nodes are collapsed')
+  const clusters = byClass(tree, 'dtp-node-cluster')
+  assert.ok(clusters.length > 0, 'cluster nodes rendered')
+  assert.ok(byClass(tree, 'dtp-node-count').length > 0, 'clusters carry a count')
+  for (const node of nodes) {
+    const left = parseFloat(String(node.props.style.left))
+    assert.ok(left >= 0 && left <= 100, 'every node stays on the rail')
+  }
+  clusters[0].props.onMouseEnter()
+  tree = render()
+  const tip = byClass(tree, 'dtp-tip')[0]
+  assert.ok(tip, 'cluster hover card')
+  assert.match(textOf(tip), /个节点/)
+  assert.match(textOf(tip), /节点 1\d\d/, 'members keep their stable numbers')
+})
+
+test('the Settings page exposes node size and the four node colors', async () => {
+  const { store } = fixture()
+  const { renderSettings } = await loadDock(store)
+  const text = textOf(renderSettings())
+  assert.match(text, /节点大小/)
+  assert.match(text, /已完成节点边缘/)
+  assert.match(text, /已完成节点中心/)
+  assert.match(text, /进行中节点边缘/)
+  assert.match(text, /进行中节点中心/)
+  assert.ok(text.includes('--dtp-node-size'), 'the preview carries the node size variable')
+})
+
+test('the node center/edge settings show the bar color as their default', async () => {
+  const { store } = fixture()
+  store.style = { barColor: '#8b3ffd' }
+  const { renderSettings } = await loadDock(store)
+  const tree = renderSettings()
+  const inputs = byClass(tree, 'dtp-set-color')
+  const centered = inputs.find(input => String(input.props['aria-label'] ?? '').includes('已完成节点中心'))
+  const edge = inputs.find(input => String(input.props['aria-label'] ?? '').includes('进行中节点边缘'))
+  assert.ok(centered && edge, 'both settings rendered')
+  assert.equal(centered.props.value, '#8b3ffd')
+  assert.equal(edge.props.value, '#8b3ffd')
+  assert.ok(byClass(tree, 'dtp-set-swatch').length >= 2, 'the bar color is shown beside them')
+  const text = textOf(tree)
+  assert.match(text, /默认与进度条同色/)
+  assert.match(text, /默认 6/)
+})
+
+test('a completed rail keeps its total time instead of growing', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  store.rails['session-1'].startedAt = now - 120_000
+  store.rails['session-1'].closedAt = now - 60_000
+  const { renderPanel } = await loadDock(store, {
+    byId: {
+      'session-1': {
+        projectionValues: {
+          taskProgress: { v: 4, turn: 4, percent: 100, done: true, startedAt: now - 120_000, updatedAt: now },
+        },
+      },
+    },
+    projectionsBySession: {},
+  })
+  assert.match(textOf(renderPanel()), /总用时 1分/)
 })
 
 test('the stale hint dims only the text, never the bar or its nodes', async () => {
