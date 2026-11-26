@@ -12,11 +12,11 @@ Two illustrations of a fictional task (no real conversation content).
 
 **In progress:** several completed nodes and one current node on the bar; hovering a node opens its detail card, and the node list is expanded below.
 
-![In-progress node rail, node card and expanded list](docs/images/scene-progress.png)
+![In-progress node rail, node card and expanded list](https://raw.githubusercontent.com/DeepSlacking/dsh-task-progress/main/docs/images/scene-progress.png)
 
 **Completed:** after the reply is final, the gray node glyph in the reply footer (after the context action, before the branch) opens the Right Sidebar, which lists every node as a card in time order.
 
-![Completed-task footer glyph and right-sidebar node cards](docs/images/scene-completed.png)
+![Completed-task footer glyph and right-sidebar node cards](https://raw.githubusercontent.com/DeepSlacking/dsh-task-progress/main/docs/images/scene-completed.png)
 
 ## Features
 
