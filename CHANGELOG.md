@@ -2,6 +2,16 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.8.1] - 2026-11-26
+
+### Fixed
+
+- The node-count badge on the expanded-list button (and the Right Sidebar header) now shows the turn's true node total from the stable `seq`; the retained rail's 100-node limit no longer caps the number.
+
+### Changed
+
+- The running node now keeps a 1px gap from the rail (a 1px background ring before its glow), so its edge no longer blends into the bar.
+
 ## [0.8.0] - 2026-11-25
 
 ### Added

@@ -357,7 +357,8 @@ window.__ModuleLoader__.load({
       'width:calc(var(--dtp-node-size,6px) + 1px);height:calc(var(--dtp-node-size,6px) + 1px);',
       'background:var(--dtp-node-live-center,var(--dsw-alias-bg-overlay,var(--dsw-alias-bg-layer-1,#fff)));',
       'border:2px solid var(--dtp-node-live-ring,var(--dtp-bar-color,var(--dsw-alias-state-business-primary)));',
-      'box-shadow:0 0 0 2px color-mix(in srgb,var(--dtp-node-live-ring,var(--dtp-bar-color,var(--dsw-alias-state-business-primary))) 24%,transparent);}',
+      'box-shadow:0 0 0 1px var(--dsw-alias-bg-layer-1,var(--dsw-alias-bg-base,#fff)),',
+      '0 0 0 3px color-mix(in srgb,var(--dtp-node-live-ring,var(--dtp-bar-color,var(--dsw-alias-state-business-primary))) 24%,transparent);}',
       // A slow ripple marks the node the task is currently on.
       '.dtp-node-current .dtp-node-dot::after{content:\'\';position:absolute;inset:-4px;border-radius:50%;',
       'pointer-events:none;',
@@ -982,6 +983,12 @@ window.__ModuleLoader__.load({
           : undefined
         const listDone = closedEntries
         const listTotal = listDone.length + (listCurrent !== undefined ? 1 : 0)
+        // The Host keeps only the newest 100 nodes, but seq keeps counting: it
+        // is the true number of nodes this turn has produced.
+        const lastSeq = steps.length > 0 && Number.isFinite(Number(steps[steps.length - 1]?.seq))
+          ? Number(steps[steps.length - 1].seq)
+          : -1
+        const railTotal = lastSeq >= 0 ? lastSeq + 1 : listTotal
         // A rail can hold a hundred nodes after a long task. Spreading every
         // dot by rank would throw them outside the bar, so nodes that share a
         // narrow percent window are grouped: up to three stay individual,
@@ -1178,7 +1185,7 @@ window.__ModuleLoader__.load({
                   },
                   h('span', { className: 'dtp-expand-arrow' }, listOpen ? '▾' : '▸'),
                   h('span', { className: 'dtp-expand-label' }, tt(t, 'list.title')),
-                  h('span', { className: 'dtp-expand-badge' }, String(listTotal)),
+                  h('span', { className: 'dtp-expand-badge' }, String(railTotal)),
                 ))
                 : null,
               h('span', { className: 'dtp-phase' }, phase),
@@ -1756,6 +1763,10 @@ window.__ModuleLoader__.load({
         const steps = rail !== null && rail !== undefined && Array.isArray(rail.steps)
           ? rail.steps.filter(step => step !== null && typeof step === 'object')
           : []
+        const panelLastSeq = steps.length > 0 && Number.isFinite(Number(steps[steps.length - 1].seq))
+          ? Number(steps[steps.length - 1].seq)
+          : -1
+        const panelTotal = panelLastSeq >= 0 ? panelLastSeq + 1 : steps.length
         const cards = steps.map((step, index) => {
           const closed = step.endedAt > 0
           const live = !closed && !done
@@ -1857,7 +1868,7 @@ window.__ModuleLoader__.load({
               h(
                 'div',
                 { className: 'dtp-panel-meta' },
-                h('span', { className: 'dtp-panel-count' }, tt(t, 'tab.count', { n: steps.length })),
+                h('span', { className: 'dtp-panel-count' }, tt(t, 'tab.count', { n: panelTotal })),
                 totalMs > 0
                   ? h('span', { className: 'dtp-panel-duration' }, tt(t, 'tab.duration', { t: totalTimeText(t, totalMs) }))
                   : null,

@@ -658,6 +658,16 @@ test('more than a hundred nodes collapse crowded positions into counted clusters
   assert.match(textOf(tip), /节点 1\d\d/, 'members keep their stable numbers')
 })
 
+test('the Settings preview carries the running-node gap rule too', async () => {
+  const { store } = fixture()
+  const { renderSettings } = await loadDock(store)
+  const tree = renderSettings()
+  const text = textOf(tree)
+  assert.ok(text.includes('0 0 0 1px var(--dsw-alias-bg-layer-1'), 'preview shares the dock CSS')
+  const live = byClass(tree, 'dtp-node-current')
+  assert.equal(live.length, 1, 'the preview renders a running node')
+})
+
 test('the Settings page exposes node size and the four node colors', async () => {
   const { store } = fixture()
   const { renderSettings } = await loadDock(store)
@@ -703,6 +713,54 @@ test('a completed rail keeps its total time instead of growing', async () => {
     projectionsBySession: {},
   })
   assert.match(textOf(renderPanel()), /总用时 1分/)
+})
+
+test('the node-count badge shows the true total past the retained 100 nodes', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const steps = []
+  for (let index = 0; index < 100; index += 1) {
+    steps.push({
+      label: `里程碑 ${index}`,
+      percent: index,
+      phase: 'execute',
+      at: now - 100_000 + index,
+      endedAt: index < 99 ? now - 90_000 + index : 0,
+      durationMs: 1_000,
+      seq: 100 + index,
+    })
+  }
+  store.rails['session-1'] = { turn: 4, startedAt: now - 200_000, steps }
+  const { render } = await loadDock(store)
+  const badge = byClass(render(), 'dtp-expand-badge')[0]
+  assert.ok(badge, 'badge rendered')
+  assert.equal(textOf(badge), '200')
+})
+
+test('the node panel header counts every node past the retained limit', async () => {
+  const { store } = fixture()
+  const now = Date.now()
+  const steps = []
+  for (let index = 0; index < 100; index += 1) {
+    steps.push({
+      label: `里程碑 ${index}`,
+      percent: index,
+      phase: 'execute',
+      at: now - 100_000 + index,
+      endedAt: now - 90_000 + index,
+      durationMs: 1_000,
+      seq: 100 + index,
+    })
+  }
+  store.rails['session-1'] = { turn: 4, startedAt: now - 200_000, closedAt: now - 1_000, steps }
+  const { renderPanel } = await loadDock(store)
+  assert.match(textOf(renderPanel()), /200 个节点/)
+})
+
+test('the running node keeps a 1px gap from the rail', async () => {
+  const { store } = fixture()
+  const { render } = await loadDock(store)
+  assert.ok(textOf(render()).includes('0 0 0 1px var(--dsw-alias-bg-layer-1'))
 })
 
 test('the stale hint dims only the text, never the bar or its nodes', async () => {
