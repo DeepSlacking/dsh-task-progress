@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Task progress",
-    "description": "Shows the running task's progress bar, phase, and next node, and marks every node the evaluator supersedes as a node with hover details and the time that node took. The session's sidebar row also carries a progress ring. The session's own model records checkpoints at nodes (report_progress); a side-channel evaluator fills in when it does not. Nothing is shown once the task ends or the session is idle.",
+    "description": "Shows the running task's progress bar, this turn's nodes and the remaining-time range; hover a node for its percentage, duration and finish time. Node size and four node colors are configurable, crowded nodes group together, rescaling is recorded, and the Right Sidebar keeps the finished node history and total duration. Progress comes from the model's own reports, with a side-channel evaluator filling in when needed.",
     "detail": "docs/DETAIL.md"
   }
 }

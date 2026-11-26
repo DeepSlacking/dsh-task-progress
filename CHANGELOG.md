@@ -2,6 +2,14 @@
 
 All notable changes to `dsh-task-progress` are documented here. GitHub Releases are created from the matching section of this file by the `Release` workflow.
 
+## [0.8.2] - 2026-11-26
+
+### Changed
+
+- The plugin detail document that DSH's Plugins page shows is refreshed for 0.8.x — node appearance, stable numbers, clustering, correction history, subagent rails and the remaining-time range are all covered.
+- Both detail documents now embed the two preview images with paths relative to the package (`images/scene-progress.png` and `images/scene-completed.png`), so the detail page can render them from the installed plugin or from the npm CDN copy.
+- The scene mockup page in `docs/mockups` is regenerated from the same CSS scenes used for the preview images.
+
 ## [0.8.1] - 2026-11-26
 
 ### Fixed
